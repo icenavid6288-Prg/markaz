@@ -59,7 +59,7 @@ type NavGroup = { section: string; items: NavItem[] };
 const nav: NavGroup[] = [
     { section: 'مرکز فرماندهی', items: [
         { title: 'داشبورد تحلیلی', href: '/admin', icon: LayoutDashboard },
-        { title: 'گزارش‌ها', href: '/admin', icon: BarChart3, permission: 'view reports' },
+        { title: 'گزارش‌ها و خروجی', href: '/admin/reports', icon: BarChart3, permission: 'view reports' },
         { title: 'خروجی سفارش‌ها (CSV)', href: '/admin/reports/orders.csv', icon: Receipt, permission: 'view reports' },
         { title: 'گزارش فعالیت مدیران', href: '/admin/audit-logs', icon: ShieldCheck, permission: 'view reports' },
     ]},

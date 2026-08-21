@@ -9,6 +9,8 @@ use App\Models\Enrollment;
 use App\Models\QuizAttempt;
 use App\Models\Student;
 use App\Models\Submission;
+use App\Models\User;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -38,6 +40,41 @@ class ParentDashboardController extends Controller
                 'upcoming_sessions' => (int) $payload->sum('stats.upcoming_sessions'),
             ],
         ]);
+    }
+
+    public function linkChild(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'phone' => ['required', 'string', 'regex:/^09\d{9}$/'],
+            'grade' => ['nullable', 'string', 'max:50'],
+            'school' => ['nullable', 'string', 'max:120'],
+        ]);
+
+        $child = User::query()->where('phone', $validated['phone'])->where('is_active', true)->first();
+        if (! $child) {
+            return back()->withErrors(['phone' => 'حسابی با این شماره پیدا نشد. ابتدا فرزند باید در سایت ثبت‌نام کند.']);
+        }
+        abort_if($child->id === $request->user()->id, 422, 'نمی‌توانید حساب خودتان را به‌عنوان فرزند متصل کنید.');
+
+        $existing = Student::query()->where('user_id', $child->id)->first();
+        if ($existing && $existing->parent_id !== $request->user()->id) {
+            return back()->withErrors(['phone' => 'این حساب قبلاً به والد دیگری متصل شده است.']);
+        }
+
+        if (! $child->hasRole('student')) {
+            $child->assignRole('student');
+        }
+
+        Student::updateOrCreate(
+            ['user_id' => $child->id],
+            [
+                'parent_id' => $request->user()->id,
+                'grade' => $validated['grade'] ?? $existing?->grade,
+                'school' => $validated['school'] ?? $existing?->school,
+            ],
+        );
+
+        return back()->with('success', 'فرزند به حساب شما متصل شد.');
     }
 
     public function show(Request $request, Student $student): Response

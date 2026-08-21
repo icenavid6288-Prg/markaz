@@ -3,6 +3,7 @@
 namespace App\Services\Payments;
 
 use App\Models\Order;
+use App\Models\Payment;
 use App\Models\Setting;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
@@ -89,6 +90,53 @@ class ZarinpalPaymentGateway implements PaymentGateway
         ];
     }
 
+    public function refund(Payment $payment, string $reason = 'refund'): array
+    {
+        $token = (string) Setting::getSecret('payment_zarinpal_access_token', '');
+        $authority = (string) ($payment->transaction_id ?: data_get($payment->meta, 'authority', ''));
+        if ($token === '') {
+            return [
+                'ok' => true,
+                'channel' => 'manual',
+                'message' => 'توکن دسترسی بازگشت وجه زرین‌پال تنظیم نشده است. سفارش در سیستم مسترد شد؛ مبلغ را از پنل زرین‌پال برگردانید.',
+            ];
+        }
+        if ($authority === '') {
+            return ['ok' => false, 'channel' => 'gateway', 'message' => 'شناسه تراکنش زرین‌پال برای بازگشت وجه موجود نیست.'];
+        }
+
+        try {
+            $response = Http::acceptJson()
+                ->withToken($token)
+                ->timeout(20)
+                ->post($this->refundUrl(), [
+                    'merchant_id' => Setting::getSecret('payment_zarinpal_merchant_id', ''),
+                    'authority' => $authority,
+                    'description' => $reason,
+                ]);
+            $code = (int) $response->json('data.code', $response->json('errors.code', 0));
+            $ok = $response->successful() && in_array($code, [100, 101], true);
+
+            return [
+                'ok' => $ok,
+                'channel' => 'gateway',
+                'reference' => (string) $response->json('data.ref_id', $response->json('data.iban', '')),
+                'message' => $ok
+                    ? 'مبلغ از زرین‌پال به کارت پرداخت‌کننده برگشت داده شد.'
+                    : (string) ($response->json('errors.message') ?: $response->json('data.message') ?: 'بازگشت وجه زرین‌پال ناموفق بود.'),
+            ];
+        } catch (Throwable $exception) {
+            return ['ok' => false, 'channel' => 'gateway', 'message' => 'اتصال بازگشت وجه زرین‌پال برقرار نشد: '.$exception->getMessage()];
+        }
+    }
+
+    private function refundUrl(): string
+    {
+        return filter_var(Setting::get('payment_zarinpal_sandbox', false), FILTER_VALIDATE_BOOLEAN)
+            ? 'https://sandbox.zarinpal.com/pg/v4/payment/refund.json'
+            : 'https://api.zarinpal.com/pg/v4/payment/refund.json';
+    }
+
     private function apiUrl(string $path): string
     {
         $base = filter_var(Setting::get('payment_zarinpal_sandbox', false), FILTER_VALIDATE_BOOLEAN)
@@ -109,6 +157,6 @@ class ZarinpalPaymentGateway implements PaymentGateway
 
     private function rial(int $toman): int
     {
-        return max(1000, $toman * 10);
+        return max(0, $toman) * 10;
     }
 }

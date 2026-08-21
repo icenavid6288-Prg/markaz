@@ -152,6 +152,13 @@ class ShopController extends Controller
 
         return Inertia::render('Shop/Show', [
             'seo' => $seo,
+            'wishlisted' => $request->user()
+                ? \App\Models\Wishlist::query()
+                    ->where('user_id', $request->user()->id)
+                    ->where('wishlistable_type', Product::class)
+                    ->where('wishlistable_id', $product->id)
+                    ->exists()
+                : false,
             'product' => $this->presentProduct($product, $request, true),
             'related' => $related->map(fn (Product $item) => $this->presentProduct($item, $request))->values(),
         ]);
@@ -171,10 +178,11 @@ class ShopController extends Controller
 
         $payload['category'] = $product->category ? $product->category->only(['id', 'name', 'slug']) : null;
         $hasPurchased = $includePaidAudio && $this->userHasPurchased($request, $product);
+        $hasDownloadPurchase = $includePaidAudio && $this->userHasPurchased($request, $product, 'download');
         $payload['has_preview_file'] = $product->hasPreviewEdition();
         $payload['has_download_edition'] = $product->hasDownloadEdition();
         $payload['can_view_preview'] = $hasPurchased && $product->hasPreviewEdition();
-        $payload['can_download'] = $hasPurchased && $product->hasDownloadEdition();
+        $payload['can_download'] = $hasDownloadPurchase && $product->hasDownloadEdition();
         $payload['preview_endpoint'] = $payload['can_view_preview'] ? route('products.preview', $product) : null;
         $payload['download_endpoint'] = $payload['can_download'] ? route('products.download', $product) : null;
 

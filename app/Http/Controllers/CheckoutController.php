@@ -7,9 +7,9 @@ use App\Models\Enrollment;
 use App\Models\Order;
 use App\Models\Payment;
 use App\Models\Product;
+use App\Services\Commerce\OrderFulfillment;
 use App\Services\Crm\LeadService;
 use App\Services\Payments\ConfiguredPaymentGateway;
-use App\Services\Payments\PaymentGateway;
 use App\Services\Marketing\MarketingCampaignDispatcher;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -46,7 +46,7 @@ class CheckoutController extends Controller
                 'billing' => ['name' => $user->name, 'email' => $user->email, 'phone' => $user->phone],
             ]);
             $order->items()->create(['purchasable_type' => Course::class, 'purchasable_id' => $course->id, 'title' => $course->title, 'unit_price' => $total, 'quantity' => 1, 'total' => $total]);
-            if ($isFree) $this->enrollCourseItems($order);
+            if ($isFree) app(OrderFulfillment::class)->enrollCourses($order);
             return $order;
         });
 
@@ -59,6 +59,7 @@ class CheckoutController extends Controller
         $this->ensureOwner($request, $order);
         abort_if($order->status === 'paid', 422, 'این سفارش قبلاً پرداخت شده است.');
         abort_unless(filter_var(Setting::get('payment_enabled', false), FILTER_VALIDATE_BOOLEAN), 422, 'درگاه پرداخت هنوز از پنل مدیریت فعال نشده است.');
+        abort_if(app()->isProduction() && $gateway->driverName() === 'local', 422, 'درگاه آزمایشی در محیط عملیاتی مجاز نیست. یک درگاه واقعی انتخاب کنید.');
 
         try {
             $result = $gateway->create($order->load('user'));
@@ -110,7 +111,7 @@ class CheckoutController extends Controller
             DB::transaction(function () use ($payment, $order, $result): void {
                 $payment->update(['status' => 'failed', 'meta' => ['message' => $result['message'] ?? 'failed']]);
                 $order->update(['status' => 'failed', 'reservation_expires_at' => null]);
-                $this->releaseProductReservations($order);
+                app(OrderFulfillment::class)->releaseReservations($order);
             });
             return redirect()->route('checkout.show', ['order' => $order->order_number])->with('error', $result['message'] ?? 'پرداخت ناموفق بود.');
         }
@@ -131,8 +132,9 @@ class CheckoutController extends Controller
                 'verified_at' => now(),
             ]);
             $lockedOrder->update(['status' => 'paid', 'paid_at' => now(), 'reservation_expires_at' => null]);
-            $this->enrollCourseItems($lockedOrder);
-            $this->finalizeProductItems($lockedOrder);
+            $fulfillment = app(OrderFulfillment::class);
+            $fulfillment->enrollCourses($lockedOrder);
+            $fulfillment->finalizeProducts($lockedOrder);
 
             return true;
         });
@@ -196,44 +198,6 @@ class CheckoutController extends Controller
         return $callbackId !== ''
             && (string) $payment->transaction_id !== ''
             && hash_equals((string) $payment->transaction_id, $callbackId);
-    }
-
-    private function enrollCourseItems(Order $order): void
-    {
-        $order->loadMissing('items');
-        foreach ($order->items as $item) {
-            if ($item->purchasable_type === Course::class) {
-                Enrollment::firstOrCreate(
-                    ['user_id' => $order->user_id, 'course_id' => $item->purchasable_id],
-                    ['status' => 'active', 'progress_percent' => 0, 'enrolled_at' => now()],
-                );
-            }
-        }
-    }
-
-    private function finalizeProductItems(Order $order): void
-    {
-        $order->loadMissing('items');
-        foreach ($order->items->where('purchasable_type', Product::class) as $item) {
-            $product = Product::query()->lockForUpdate()->find($item->purchasable_id);
-            if (! $product) {
-                continue;
-            }
-
-            $product->decrement('stock', min((int) $item->quantity, (int) $product->stock));
-            $product->decrement('reserved_stock', min((int) $item->quantity, (int) $product->reserved_stock));
-        }
-    }
-
-    private function releaseProductReservations(Order $order): void
-    {
-        $order->loadMissing('items');
-        foreach ($order->items->where('purchasable_type', Product::class) as $item) {
-            $product = Product::query()->lockForUpdate()->find($item->purchasable_id);
-            if ($product) {
-                $product->decrement('reserved_stock', min((int) $item->quantity, (int) $product->reserved_stock));
-            }
-        }
     }
 
     private function ensureOwner(Request $request, Order $order): void

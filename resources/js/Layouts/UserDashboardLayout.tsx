@@ -37,6 +37,7 @@ const groups = [
             { label: 'تکلیف‌ها', href: '/dashboard/assignments', icon: ClipboardList },
             { label: 'گواهینامه‌ها', href: '/dashboard/certificates', icon: Award },
             { label: 'کتابخانه من', href: '/dashboard/library', icon: Headphones },
+            { label: 'علاقه‌مندی‌ها', href: '/dashboard/wishlist', icon: Heart },
             { label: 'مسیر رشد', href: '/dashboard/goals', icon: Route },
             { label: 'جلسات کوچینگ', href: '/dashboard/sessions', icon: CalendarDays },
         ],

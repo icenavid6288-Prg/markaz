@@ -66,14 +66,27 @@ export function CourseDetailScreen({ route }: Props) {
         );
     }
 
-    const goEnroll = () => {
+    const goEnroll = async () => {
         if (!token) {
             Alert.alert('ورود لازم است', 'برای ثبت‌نام ابتدا وارد حساب خود شوید.');
             return;
         }
-        openSitePage(`/courses/${course.slug}`).catch((e) =>
-            Alert.alert('خطا', e instanceof ApiError ? e.message : 'خطا در باز کردن صفحه')
-        );
+        if (enrolled) {
+            openSitePage(`/dashboard/courses/${course.slug}/learn`).catch((e) =>
+                Alert.alert('خطا', e instanceof ApiError ? e.message : 'خطا در باز کردن صفحه')
+            );
+            return;
+        }
+        try {
+            const result = await api<{ enrolled?: boolean; checkout_url?: string | null; player_url?: string | null }>(
+                `/api/v1/courses/${course.slug}/checkout`,
+                { method: 'POST' }
+            );
+            const target = result.checkout_url || result.player_url || `/courses/${course.slug}`;
+            await openSitePage(target.replace(/^https?:\/\/[^/]+/, ''));
+        } catch (e) {
+            Alert.alert('خطا', e instanceof ApiError ? e.message : 'ثبت‌نام انجام نشد.');
+        }
     };
 
     const enrolled = Boolean(course.enrollment);

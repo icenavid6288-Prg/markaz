@@ -1,0 +1,15 @@
+import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
+import { useForm, usePage } from '@inertiajs/react';
+import { CheckCircle2, Save } from 'lucide-react';
+export default function UpdateProfileInformation({ mustVerifyEmail, status, className = '', }) {
+    const user = usePage().props.auth.user;
+    const { data, setData, patch, errors, processing, recentlySuccessful } = useForm({
+        name: user?.name ?? '',
+        phone: user?.phone ?? '',
+    });
+    const submit = (event) => {
+        event.preventDefault();
+        patch('/profile', { preserveScroll: true });
+    };
+    return (_jsxs("form", { onSubmit: submit, className: `profile-form ${className}`, children: [_jsxs("div", { className: "grid gap-5 sm:grid-cols-2", children: [_jsxs("div", { className: "sm:col-span-2", children: [_jsx("label", { htmlFor: "profile-name", children: "\u0646\u0627\u0645 \u0648 \u0646\u0627\u0645 \u062E\u0627\u0646\u0648\u0627\u062F\u06AF\u06CC" }), _jsx("input", { id: "profile-name", type: "text", value: data.name, onChange: (event) => setData('name', event.target.value), required: true, autoComplete: "name" }), errors.name && _jsx("p", { className: "profile-error", children: errors.name })] }), _jsxs("div", { children: [_jsx("label", { htmlFor: "profile-phone", children: "\u0634\u0645\u0627\u0631\u0647 \u0645\u0648\u0628\u0627\u06CC\u0644" }), _jsx("input", { id: "profile-phone", type: "tel", dir: "ltr", value: data.phone, onChange: (event) => setData('phone', event.target.value), required: true, autoComplete: "tel" }), _jsx("p", { className: "profile-hint", children: "\u0628\u0631\u0627\u06CC \u0648\u0631\u0648\u062F \u0648 \u062F\u0631\u06CC\u0627\u0641\u062A \u06A9\u062F \u067E\u06CC\u0627\u0645\u06A9\u06CC \u0627\u0633\u062A\u0641\u0627\u062F\u0647 \u0645\u06CC\u200C\u0634\u0648\u062F." }), errors.phone && _jsx("p", { className: "profile-error", children: errors.phone })] }), _jsxs("div", { children: [_jsx("label", { children: "\u0627\u06CC\u0645\u06CC\u0644" }), _jsx("div", { className: "profile-readonly", dir: "ltr", children: user?.email || 'ثبت نشده' }), _jsx("p", { className: "profile-hint", children: "\u0648\u0631\u0648\u062F \u0633\u0627\u06CC\u062A \u0641\u0642\u0637 \u0628\u0627 \u0634\u0645\u0627\u0631\u0647 \u0645\u0648\u0628\u0627\u06CC\u0644 \u0627\u0646\u062C\u0627\u0645 \u0645\u06CC\u200C\u0634\u0648\u062F." })] })] }), mustVerifyEmail && status === 'verification-link-sent' && _jsx("p", { className: "profile-success", children: "\u0644\u06CC\u0646\u06A9 \u062A\u0623\u06CC\u06CC\u062F \u062C\u062F\u06CC\u062F \u0627\u0631\u0633\u0627\u0644 \u0634\u062F." }), _jsxs("div", { className: "mt-6 flex flex-wrap items-center gap-3", children: [_jsxs("button", { type: "submit", disabled: processing, className: "profile-submit", children: [_jsx(Save, { className: "size-4" }), " ", processing ? 'در حال ذخیره...' : 'ذخیره تغییرات'] }), recentlySuccessful && _jsxs("span", { className: "profile-success", children: [_jsx(CheckCircle2, { className: "size-4" }), " \u062A\u063A\u06CC\u06CC\u0631\u0627\u062A \u0630\u062E\u06CC\u0631\u0647 \u0634\u062F."] })] })] }));
+}

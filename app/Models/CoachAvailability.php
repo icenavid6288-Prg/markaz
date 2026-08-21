@@ -15,6 +15,7 @@ class CoachAvailability extends Model
         'start_time',
         'end_time',
         'is_booked',
+        'series_id',
     ];
 
     protected function casts(): array

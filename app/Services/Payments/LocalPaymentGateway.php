@@ -3,6 +3,7 @@
 namespace App\Services\Payments;
 
 use App\Models\Order;
+use App\Models\Payment;
 use Illuminate\Http\Request;
 
 class LocalPaymentGateway implements PaymentGateway
@@ -35,5 +36,15 @@ class LocalPaymentGateway implements PaymentGateway
     public function checkConnection(): array
     {
         return ['ok' => true, 'message' => 'درگاه آزمایشی داخلی همیشه در دسترس است.'];
+    }
+
+    public function refund(Payment $payment, string $reason = 'refund'): array
+    {
+        return [
+            'ok' => true,
+            'channel' => 'local',
+            'message' => 'بازگشت وجه آزمایشی ثبت شد.',
+            'reference' => 'LOCAL-REFUND-'.$payment->id,
+        ];
     }
 }

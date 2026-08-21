@@ -143,7 +143,7 @@ class CertificateFlowTest extends TestCase
 
     public function test_download_returns_the_pdf_file(): void
     {
-        Storage::fake('public');
+        Storage::fake('local');
         ['user' => $user, 'course' => $course] = $this->courseWithOneLesson();
         $certificate = Certificate::create(['user_id' => $user->id, 'course_id' => $course->id, 'certificate_number' => 'SAR-2026-DWNLD1', 'issued_at' => now()]);
 
@@ -153,7 +153,7 @@ class CertificateFlowTest extends TestCase
             ->assertHeader('content-type', 'application/pdf');
 
         $this->assertNotNull($certificate->fresh()->file_path);
-        Storage::disk('public')->assertExists($certificate->fresh()->file_path);
+        Storage::disk('local')->assertExists($certificate->fresh()->file_path);
 
         // Others cannot download someone else's certificate.
         $other = User::factory()->create();

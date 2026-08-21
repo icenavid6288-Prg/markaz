@@ -101,6 +101,13 @@ class UserDashboardController extends Controller
             ->unique()
             ->values();
 
+        $downloadableIds = $paidOrders->flatMap(fn (Order $order) => $order->items
+            ->where('purchasable_type', Product::class)
+            ->filter(fn ($item) => in_array($item->purchase_mode ?? 'download', ['download', null], true))
+            ->pluck('purchasable_id'))
+            ->unique()
+            ->values();
+
         $products = Product::active()
             ->whereIn('id', $productIds)
             ->with('episodes')
@@ -138,15 +145,17 @@ class UserDashboardController extends Controller
                     ])->values(),
                 ];
             })->values(),
-            'downloads' => $products->whereIn('type', ['book', 'digital'])->map(function (Product $product) use ($mapProduct, $purchasedAt): array {
+            'downloads' => $products->whereIn('type', ['book', 'digital'])->map(function (Product $product) use ($mapProduct, $purchasedAt, $downloadableIds): array {
+                $canDownload = $downloadableIds->contains($product->id) && $product->hasDownloadEdition() && filled($product->file_path);
+
                 return [
                     ...$mapProduct($product),
                     'type' => $product->type,
                     'purchased_at' => $purchasedAt[$product->id] ?? null,
                     'has_preview' => $product->hasPreviewEdition(),
                     'preview_url' => $product->hasPreviewEdition() ? route('products.preview', $product) : null,
-                    'has_file' => $product->hasDownloadEdition() && filled($product->file_path),
-                    'download_url' => $product->hasDownloadEdition() && filled($product->file_path) ? route('products.download', $product) : null,
+                    'has_file' => $canDownload,
+                    'download_url' => $canDownload ? route('products.download', $product) : null,
                 ];
             })->values(),
         ]);
@@ -187,6 +196,9 @@ class UserDashboardController extends Controller
                 'status' => $session->status,
                 'meeting_link' => $session->meeting_link,
                 'coach' => $session->coach?->name,
+                'can_cancel' => in_array($session->status, ['pending', 'confirmed'], true)
+                    && $session->scheduled_at
+                    && $session->scheduled_at->isFuture(),
             ])->values();
 
         $goals = CoachingGoal::query()

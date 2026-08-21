@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Order;
 use App\Models\Product;
+use App\Services\Commerce\OrderFulfillment;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -61,6 +62,30 @@ class CartController extends Controller
         return back()->with('success', 'محصول از سبد خرید حذف شد.');
     }
 
+    public function applyCoupon(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'code' => ['required', 'string', 'max:32'],
+        ]);
+
+        $totals = $this->cartData($request)['totals'];
+        $coupon = app(OrderFulfillment::class)->findValidCoupon($validated['code'], (int) $totals['total']);
+        if (! $coupon) {
+            return back()->withErrors(['code' => 'کد تخفیف معتبر نیست یا منقضی شده است.']);
+        }
+
+        $request->session()->put('cart_coupon', $coupon->code);
+
+        return back()->with('success', 'کد تخفیف اعمال شد.');
+    }
+
+    public function removeCoupon(Request $request): RedirectResponse
+    {
+        $request->session()->forget('cart_coupon');
+
+        return back()->with('success', 'کد تخفیف برداشته شد.');
+    }
+
     public function checkout(Request $request): RedirectResponse
     {
         $cart = $this->cart($request);
@@ -70,7 +95,8 @@ class CartController extends Controller
 
         $user = $request->user();
         $cartModes = $this->cartModes($request);
-        $order = DB::transaction(function () use ($user, $cart, $cartModes) {
+        $couponCode = (string) $request->session()->get('cart_coupon', '');
+        $order = DB::transaction(function () use ($user, $cart, $cartModes, $couponCode) {
             $products = Product::query()
                 ->where('is_active', true)
                 ->whereIn('id', array_keys($cart))
@@ -98,7 +124,10 @@ class CartController extends Controller
             })->values();
 
             $subtotal = (int) $items->sum(fn ($item) => $item['price'] * $item['quantity']);
-            $total = (int) $items->sum('total');
+            $itemsTotal = (int) $items->sum('total');
+            $coupon = app(OrderFulfillment::class)->findValidCoupon($couponCode, $itemsTotal);
+            $couponDiscount = $coupon ? $coupon->discountFor($itemsTotal) : 0;
+            $total = max(0, $itemsTotal - $couponDiscount);
             $isFree = $total === 0;
 
             $order = Order::create([
@@ -107,6 +136,7 @@ class CartController extends Controller
                 'status' => $isFree ? 'paid' : 'pending',
                 'subtotal' => $subtotal,
                 'discount' => $subtotal - $total,
+                'coupon_id' => $coupon?->id,
                 'total' => $total,
                 'payment_method' => $isFree ? 'free' : null,
                 'paid_at' => $isFree ? now() : null,
@@ -133,14 +163,18 @@ class CartController extends Controller
                 $product->increment('reserved_stock', $item['quantity']);
             }
 
+            if ($coupon) {
+                $coupon->increment('used_count');
+            }
+
             if ($isFree) {
-                $this->finalizeProductItems($order);
+                app(OrderFulfillment::class)->finalizeProducts($order);
             }
 
             return $order;
         });
 
-        $request->session()->forget(['cart', 'cart_modes']);
+        $request->session()->forget(['cart', 'cart_modes', 'cart_coupon']);
 
         if ($order->status === 'paid') {
             return redirect()->route('dashboard.orders')->with('success', 'سفارش رایگان شما با موفقیت ثبت شد.');
@@ -188,10 +222,17 @@ class CartController extends Controller
         })->filter()->values();
 
         $subtotal = (int) $items->sum(fn ($item) => $item['price'] * $item['quantity']);
-        $total = (int) $items->sum('total');
+        $itemsTotal = (int) $items->sum('total');
+        $coupon = app(OrderFulfillment::class)->findValidCoupon((string) $request->session()->get('cart_coupon', ''), $itemsTotal);
+        $couponDiscount = $coupon ? $coupon->discountFor($itemsTotal) : 0;
+        $total = max(0, $itemsTotal - $couponDiscount);
 
         return [
             'items' => $items,
+            'coupon' => $coupon ? [
+                'code' => $coupon->code,
+                'discount' => $couponDiscount,
+            ] : null,
             'totals' => [
                 'subtotal' => $subtotal,
                 'discount' => $subtotal - $total,
@@ -256,19 +297,5 @@ class CartController extends Controller
         }
 
         return ['price' => (int) $product->price, 'discount_price' => $product->discount_price, 'final_price' => $product->finalPrice()];
-    }
-
-    private function finalizeProductItems(Order $order): void
-    {
-        $order->loadMissing('items');
-        foreach ($order->items->where('purchasable_type', Product::class) as $item) {
-            $product = Product::query()->lockForUpdate()->find($item->purchasable_id);
-            if (! $product) {
-                continue;
-            }
-
-            $product->decrement('stock', min((int) $item->quantity, (int) $product->stock));
-            $product->decrement('reserved_stock', min((int) $item->quantity, (int) $product->reserved_stock));
-        }
     }
 }

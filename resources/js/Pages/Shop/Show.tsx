@@ -1,6 +1,6 @@
-import { Link, useForm, usePage } from '@inertiajs/react';
+import { Link, router, useForm, usePage } from '@inertiajs/react';
 import { ReviewComposer, type ExistingReviewData } from '@/Components/ReviewComposer';
-import { ArrowLeft, BookOpen, Download, ExternalLink, Eye, Headphones, PlayCircle, ShoppingBag, Star } from 'lucide-react';
+import { ArrowLeft, BookOpen, Download, ExternalLink, Eye, Headphones, Heart, PlayCircle, ShoppingBag, Star } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { PodcastPlayer } from '@/Components/PodcastPlayer';
 import { PageHeader } from '@/Components/ui/PageHeader';
@@ -39,7 +39,7 @@ interface ProductData {
 }
 
 export default function ShopShow() {
-    const { product, related, auth } = usePage<PageProps & { product: ProductData; related: ProductData[] }>().props;
+    const { product, related, auth, wishlisted = false } = usePage<PageProps & { product: ProductData; related: ProductData[]; wishlisted?: boolean }>().props;
     const cartForm = useForm({ quantity: 1, purchase_mode: 'download' });
 
     const addToCart = (purchaseMode: 'online' | 'download' = 'download') => {
@@ -139,6 +139,9 @@ export default function ShopShow() {
                             {isBook && product.has_preview_file ? <button type="button" onClick={() => addToCart('online')} disabled={cartForm.processing} className="inline-flex items-center gap-2 rounded-2xl bg-deep-green px-6 py-3.5 text-sm font-bold text-white shadow-soft transition-all hover:bg-brand-800 active:scale-[0.97] disabled:cursor-wait disabled:opacity-60"><Eye className="size-5" aria-hidden /> خرید مطالعه آنلاین · {formatPrice(finalPrice)}</button> : null}
                             {isBook && product.has_download_edition ? <button type="button" onClick={() => addToCart('download')} disabled={cartForm.processing} className="inline-flex items-center gap-2 rounded-2xl border border-brand-200 bg-brand-50 px-6 py-3.5 text-sm font-bold text-brand-800 transition-all hover:bg-brand-100 active:scale-[0.97] disabled:cursor-wait disabled:opacity-60"><Download className="size-5" aria-hidden /> خرید نسخه دانلودی · {formatPrice(downloadPrice)}</button> : null}
                             {!isBook && <button type="button" onClick={() => addToCart('download')} disabled={cartForm.processing} className="inline-flex items-center gap-2 rounded-2xl bg-deep-green px-7 py-3.5 text-base font-bold text-white shadow-soft transition-all hover:bg-brand-800 active:scale-[0.97] disabled:cursor-wait disabled:opacity-60"><ShoppingBag className="size-5" aria-hidden /> {cartForm.processing ? 'در حال افزودن...' : 'افزودن به سبد خرید'}</button>}
+                            <button type="button" onClick={() => router.post('/wishlist', { type: 'product', id: product.id })} className="inline-flex items-center gap-2 rounded-2xl border border-navy/10 px-5 py-3.5 text-sm font-bold text-navy/70">
+                                <Heart className={`size-4 ${wishlisted ? 'fill-red-500 text-red-500' : ''}`} /> {wishlisted ? 'در علاقه‌مندی‌ها' : 'علاقه‌مندی'}
+                            </button>
                             <Link href="/shop" className="inline-flex items-center gap-2 rounded-2xl border border-navy/10 px-7 py-3.5 text-base font-bold text-navy/70 transition-colors hover:border-brand-300 hover:text-brand-700">
                                 <ArrowLeft className="size-5" aria-hidden />
                                 بازگشت به فروشگاه

@@ -70,11 +70,22 @@ class SitemapController extends Controller
                     'lastmod' => $service->updated_at?->toAtomString() ?? $lastmod,
                 ]);
 
+            $cmsPages = Page::published()
+                ->latest('updated_at')
+                ->get(['slug', 'updated_at'])
+                ->map(fn (Page $page) => [
+                    'url' => $base.'/p/'.$page->slug,
+                    'priority' => '0.5',
+                    'freq' => 'monthly',
+                    'lastmod' => $page->updated_at?->toAtomString() ?? $lastmod,
+                ]);
+
             $entries = $staticPages
                 ->concat($courses)
                 ->concat($products)
                 ->concat($posts)
-                ->concat($services);
+                ->concat($services)
+                ->concat($cmsPages);
 
             return $this->render($entries);
         });

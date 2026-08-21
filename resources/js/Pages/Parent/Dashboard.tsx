@@ -1,4 +1,4 @@
-import { Link, usePage } from '@inertiajs/react';
+import { Link, useForm, usePage } from '@inertiajs/react';
 import { ArrowLeft, Award, BookOpen, CalendarDays, ClipboardList, HeartHandshake, TrendingUp, Users } from 'lucide-react';
 import type { ReactNode } from 'react';
 import ProfessionalLayout from '@/Layouts/ProfessionalLayout';
@@ -32,7 +32,8 @@ export default function ParentDashboard() {
         </section>
 
         <section id="children" className="scroll-mt-24">
-            <div className="mb-4"><div className="dashboard-eyebrow"><span /> فرزندان من</div><h2 className="mt-2 text-xl font-black text-navy">فرزندانی که به حساب شما متصل‌اند</h2><p className="mt-2 text-sm text-navy/50">برای دیدن جزئیات پیشرفت و گزارش‌ها، روی فرزند موردنظر کلیک کنید.</p></div>
+            <div className="mb-4"><div className="dashboard-eyebrow"><span /> فرزندان من</div><h2 className="mt-2 text-xl font-black text-navy">فرزندانی که به حساب شما متصل‌اند</h2><p className="mt-2 text-sm text-navy/50">برای دیدن جزئیات پیشرفت و گزارش‌ها، روی فرزند موردنظر کلیک کنید. اگر حساب فرزند ساخته شده، با شماره موبایلش او را وصل کنید.</p></div>
+            <LinkChildForm />
             <div className="grid gap-5 md:grid-cols-2">
                 {children.length > 0 ? children.map((child) => <Link key={child.id} href={child.url} className="group flex flex-col gap-5 rounded-2xl border border-white/80 bg-white/80 p-5 shadow-soft transition-all hover:-translate-y-1 hover:shadow-lift">
                     <div className="flex items-center gap-4">
@@ -59,6 +60,19 @@ export default function ParentDashboard() {
             </div>
         </section>
     </div></ProfessionalLayout>;
+}
+
+function LinkChildForm() {
+    const form = useForm({ phone: '', grade: '', school: '' });
+    return (
+        <form className="mb-5 grid gap-3 rounded-2xl border border-white/80 bg-white/80 p-4 shadow-soft md:grid-cols-[1fr_8rem_1fr_auto]" onSubmit={(event) => { event.preventDefault(); form.post('/panel/parent/children', { preserveScroll: true, onSuccess: () => form.reset() }); }}>
+            <input dir="ltr" value={form.data.phone} onChange={(event) => form.setData('phone', event.target.value)} placeholder="09xxxxxxxxx" className="rounded-xl border border-navy/10 px-3 py-2 text-sm" />
+            <input value={form.data.grade} onChange={(event) => form.setData('grade', event.target.value)} placeholder="پایه" className="rounded-xl border border-navy/10 px-3 py-2 text-sm" />
+            <input value={form.data.school} onChange={(event) => form.setData('school', event.target.value)} placeholder="مدرسه" className="rounded-xl border border-navy/10 px-3 py-2 text-sm" />
+            <button type="submit" disabled={form.processing} className="rounded-xl bg-brand-600 px-4 py-2 text-xs font-black text-white">اتصال فرزند</button>
+            {form.errors.phone && <p className="md:col-span-4 text-xs font-bold text-red-600">{form.errors.phone}</p>}
+        </form>
+    );
 }
 
 ParentDashboard.layout = (page: ReactNode) => page;

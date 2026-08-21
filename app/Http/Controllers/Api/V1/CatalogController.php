@@ -28,7 +28,8 @@ class CatalogController extends Controller
 
         $course->load(['instructor.user', 'category', 'modules.lessons']);
 
-        $enrollment = $request->user()?->enrollments()->where('course_id', $course->id)->first();
+        $user = $request->user() ?? $request->user('sanctum');
+        $enrollment = $user?->enrollments()->where('course_id', $course->id)->first();
 
         $curriculum = $course->modules->map(fn ($module) => [
             'id' => $module->id,

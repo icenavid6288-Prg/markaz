@@ -3,6 +3,7 @@
 namespace App\Services\Payments;
 
 use App\Models\Order;
+use App\Models\Payment;
 use Illuminate\Http\Request;
 
 interface PaymentGateway
@@ -19,4 +20,12 @@ interface PaymentGateway
      * @return array{ok: bool, message: string}
      */
     public function checkConnection(): array;
+
+    /**
+     * Return money for a captured payment. Implementations must never throw for a
+     * business failure — they return ok=false so the ledger can stay consistent.
+     *
+     * @return array{ok:bool, channel:string, message:string, reference?:string}
+     */
+    public function refund(Payment $payment, string $reason = 'refund'): array;
 }

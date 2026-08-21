@@ -1,4 +1,4 @@
-import { Link, usePage } from '@inertiajs/react';
+import { Link, useForm, usePage } from '@inertiajs/react';
 import { ArrowLeft, CalendarDays, Clock3, Newspaper, PlayCircle, Share2, UserRound } from 'lucide-react';
 import { useRef, type ReactNode } from 'react';
 import { ReadingProgress } from '@/Components/ReadingProgress';
@@ -105,6 +105,28 @@ export default function BlogShow() {
                             <p className="text-base leading-9 text-navy/75">{post.excerpt}</p>
                         )}
                     </article>
+
+                    <section className="mt-12 border-t border-navy/10 pt-8">
+                        <h2 className="text-lg font-black text-navy">نظرات</h2>
+                        {auth.user ? (
+                            <form className="mt-4 flex flex-col gap-3" onSubmit={(event) => { event.preventDefault(); commentForm.post(`/blog/${post.slug}/comments`, { preserveScroll: true, onSuccess: () => commentForm.reset('body') }); }}>
+                                <textarea rows={3} value={commentForm.data.body} onChange={(event) => commentForm.setData('body', event.target.value)} className="w-full rounded-2xl border border-navy/10 px-4 py-3 text-sm text-navy outline-none focus:border-brand-500" placeholder="نظر خود را بنویسید..." />
+                                {commentForm.errors.body && <p className="text-xs font-bold text-red-600">{commentForm.errors.body}</p>}
+                                <button type="submit" disabled={commentForm.processing} className="self-start rounded-xl bg-brand-600 px-4 py-2 text-xs font-black text-white">ارسال نظر</button>
+                            </form>
+                        ) : (
+                            <p className="mt-3 text-sm font-bold text-navy/50">برای ثبت نظر ابتدا وارد شوید.</p>
+                        )}
+                        <div className="mt-6 flex flex-col gap-4">
+                            {comments.length === 0 && <p className="text-sm font-bold text-navy/40">هنوز نظر تأییدشده‌ای ثبت نشده است.</p>}
+                            {comments.map((comment) => (
+                                <article key={comment.id} className="rounded-2xl bg-soft-gray p-4">
+                                    <div className="text-xs font-black text-navy">{comment.name}</div>
+                                    <p className="mt-2 text-sm leading-7 text-navy/70">{comment.body}</p>
+                                </article>
+                            ))}
+                        </div>
+                    </section>
 
                     <div className="mt-12 flex items-center justify-between gap-4 border-t border-navy/10 pt-6">
                         <Link href="/blog" className="inline-flex items-center gap-2 text-sm font-bold text-brand-700 hover:text-brand-800">

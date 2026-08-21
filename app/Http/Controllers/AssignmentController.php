@@ -28,7 +28,7 @@ class AssignmentController extends Controller
 
         $validated = $request->validate([
             'content' => ['nullable', 'string', 'max:20000'],
-            'attachment' => ['nullable', 'file', 'max:10240'],
+            'attachment' => ['nullable', 'file', 'mimes:pdf,doc,docx,zip,png,jpg,jpeg,webp', 'max:10240'],
         ]);
 
         $content = trim((string) ($validated['content'] ?? ''));
@@ -44,7 +44,7 @@ class AssignmentController extends Controller
 
         $attachment = $submission?->attachment;
         if ($request->hasFile('attachment')) {
-            $attachment = $request->file('attachment')->store('assignments', 'public');
+            $attachment = $request->file('attachment')->store('assignments/'.$request->user()->id, 'local');
         }
 
         Submission::updateOrCreate(

@@ -72,4 +72,15 @@ class User extends Authenticatable
     {
         return $this->hasOne(Coach::class);
     }
+
+    public function assignDefaultCustomerRole(): void
+    {
+        if ($this->roles()->exists()) {
+            return;
+        }
+
+        if (\Spatie\Permission\Models\Role::query()->where('name', 'customer')->where('guard_name', 'web')->exists()) {
+            $this->assignRole('customer');
+        }
+    }
 }

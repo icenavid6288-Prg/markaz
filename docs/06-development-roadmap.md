@@ -51,7 +51,7 @@
 ## فاز ۷ — اعلان، گزارش، تکمیل
 - [ ] Notification Center (In-App + Email + Queue)
 - [ ] تیکت‌ها و پشتیبانی
-- [ ] گزارش‌ها + Export (CSV/Excel/PDF)
+- [x] گزارش‌ها + Export (CSV سازگار با اکسل + نسخه چاپی/PDF مرورگر)
 - [ ] آنالیتیکس (page_views)
 
 ## فاز ۸ — Production

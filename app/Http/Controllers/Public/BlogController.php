@@ -138,10 +138,24 @@ class BlogController extends Controller
             $post->cover_image,
         );
 
+        $comments = $post->comments()
+            ->with('user:id,name,avatar')
+            ->where('is_approved', true)
+            ->latest()
+            ->limit(40)
+            ->get()
+            ->map(fn ($comment) => [
+                'id' => $comment->id,
+                'body' => $comment->body,
+                'name' => $comment->user?->name ?? 'کاربر',
+                'created_at' => $comment->created_at?->toISOString(),
+            ]);
+
         return Inertia::render('Blog/Show', [
             'seo' => $seo,
             'post' => $post,
             'related' => $related,
+            'comments' => $comments,
         ]);
     }
 }

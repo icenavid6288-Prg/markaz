@@ -1,0 +1,5 @@
+import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
+export function SectionHeading({ eyebrow, title, description, align = 'center', dark = false, action, station = false, }) {
+    const alignCls = align === 'center' ? 'text-center items-center' : 'text-start items-start';
+    return (_jsxs("div", { className: `flex flex-col gap-3 ${alignCls} ${action ? 'md:flex-row md:items-end md:justify-between' : ''}`, children: [_jsxs("div", { className: `flex flex-col gap-3 ${alignCls} max-w-2xl`, children: [eyebrow && (_jsxs("span", { className: `section-eyebrow ${station ? 'station-eyebrow' : ''}`, children: [!station && _jsx("span", { className: "section-eyebrow-mark" }), eyebrow] })), _jsx("h2", { className: `text-4xl font-black leading-tight md:text-5xl ${dark ? 'text-white' : 'text-navy'}`, children: title }), description && (_jsx("p", { className: `text-base leading-8 md:text-lg ${dark ? 'text-white/70' : 'text-navy/60'}`, children: description }))] }), action && _jsx("div", { className: "shrink-0", children: action })] }));
+}

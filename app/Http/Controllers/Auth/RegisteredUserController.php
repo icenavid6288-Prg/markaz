@@ -112,7 +112,7 @@ class RegisteredUserController extends Controller
             $request->session()->put('register_data', [
                 'name' => $request->string('name')->toString(),
                 'phone' => $phone,
-                'password' => $request->string('password')->toString(),
+                'password' => Hash::make($request->string('password')->toString()),
                 'referral_code' => $request->string('referral_code')->toString() ?: null,
             ]);
         }
@@ -217,9 +217,9 @@ class RegisteredUserController extends Controller
         $user = User::create([
             'name' => $pending['name'],
             'phone' => $pending['phone'],
-            // The User model hashes the password via the 'hashed' cast.
             'password' => $pending['password'],
         ]);
+        $user->assignDefaultCustomerRole();
 
         $referrals->redeem($pending['referral_code'] ?? null, $user);
 

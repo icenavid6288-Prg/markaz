@@ -19,12 +19,15 @@ class CoachingSession extends Model
         'report',
         'notes',
         'rating',
+        'cancelled_at',
+        'cancel_reason',
     ];
 
     protected function casts(): array
     {
         return [
             'scheduled_at' => 'datetime',
+            'cancelled_at' => 'datetime',
             'price' => 'integer',
         ];
     }

@@ -88,7 +88,7 @@ class ProductionFoundationsTest extends TestCase
     public function test_authenticated_user_can_reserve_an_available_coaching_slot_once(): void
     {
         $coachUser = User::factory()->create(['name' => 'کوچ تستی']);
-        Coach::create(['user_id' => $coachUser->id, 'specialty' => 'رشد فردی', 'hourly_rate' => 900000, 'is_available' => true]);
+        Coach::create(['user_id' => $coachUser->id, 'specialty' => 'رشد فردی', 'hourly_rate' => 0, 'is_available' => true]);
         $slot = CoachAvailability::create(['coach_id' => $coachUser->id, 'available_date' => now()->addDay()->toDateString(), 'start_time' => '10:00', 'end_time' => '11:00', 'is_booked' => false]);
         $student = User::factory()->create();
 

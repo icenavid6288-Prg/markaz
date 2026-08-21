@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Course;
 use App\Services\CertificateService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -37,9 +38,15 @@ class Enrollment extends Model
         });
 
         static::created(function (Enrollment $enrollment): void {
+            Course::query()->whereKey($enrollment->course_id)->increment('students_count');
+
             if ($enrollment->status === 'completed') {
                 app(CertificateService::class)->issueIfEligible($enrollment);
             }
+        });
+
+        static::deleted(function (Enrollment $enrollment): void {
+            Course::query()->whereKey($enrollment->course_id)->where('students_count', '>', 0)->decrement('students_count');
         });
     }
 

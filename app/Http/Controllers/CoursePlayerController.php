@@ -3,18 +3,19 @@
 namespace App\Http\Controllers;
 
 use App\Models\Assignment;
+use App\Models\Bookmark;
 use App\Models\Certificate;
 use App\Models\Course;
 use App\Models\Enrollment;
 use App\Models\Lesson;
 use App\Models\LessonProgress;
+use App\Models\Note;
 use App\Models\Quiz;
 use App\Models\QuizAttempt;
 use App\Models\Submission;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -22,11 +23,13 @@ class CoursePlayerController extends Controller
 {
     public function show(Request $request, Course $course, ?Lesson $lesson = null): Response|\Illuminate\Http\RedirectResponse
     {
-        $enrollment = $this->enrollment($request, $course);
+        $enrollment = $this->resolveEnrollment($request, $course);
+        $preview = ! $enrollment->exists;
         $course->load(['modules.lessons.quiz.questions', 'modules.lessons.assignments']);
         $lessons = $course->modules->flatMap(fn ($module) => $module->lessons)->values();
-        $current = $lesson && $lesson->course_id === $course->id ? $lesson : $lessons->first();
+        $current = $lesson && $lesson->course_id === $course->id ? $lesson : $lessons->first(fn (Lesson $item) => ! $preview || $item->is_free) ?? $lessons->first();
         abort_unless($current, 404);
+        abort_if($preview && ! $current->is_free, 403, 'برای مشاهده این درس باید در دوره ثبت‌نام کنید.');
 
         $progress = LessonProgress::query()->where('user_id', $request->user()->id)->whereIn('lesson_id', $lessons->pluck('id'))->get()->keyBy('lesson_id');
 
@@ -58,7 +61,9 @@ class CoursePlayerController extends Controller
         // (video / audio / podcast) is still uncompleted, any previous quiz
         // lesson has not been passed yet, or any previous assignment lesson has
         // not been submitted yet, so users cannot skip past content.
-        $lockedMap = $this->lockedLessons($lessons, $progress, $quizAttempts, $submissions);
+        $lockedMap = $preview
+            ? $lessons->mapWithKeys(fn (Lesson $item) => [$item->id => ! $item->is_free])->all()
+            : $this->lockedLessons($lessons, $progress, $quizAttempts, $submissions);
 
         // Redirect to the furthest unlocked lesson when the requested one is locked.
         if (($lockedMap[$current->id] ?? false) === true) {
@@ -68,13 +73,17 @@ class CoursePlayerController extends Controller
         }
 
         $certificate = null;
-        if ($enrollment->status === 'completed' && $course->certificate_enabled) {
+        if ($enrollment->exists && $enrollment->status === 'completed' && $course->certificate_enabled) {
             $certificate = Certificate::query()->where('user_id', $request->user()->id)->where('course_id', $course->id)->first();
         }
+
+        $note = Note::query()->where('user_id', $request->user()->id)->where('lesson_id', $current->id)->first();
+        $bookmarked = Bookmark::query()->where('user_id', $request->user()->id)->where('lesson_id', $current->id)->exists();
 
         return Inertia::render('Learning/Player', [
             'course' => ['id' => $course->id, 'title' => $course->title, 'slug' => $course->slug, 'thumbnail' => $course->thumbnail],
             'enrollment' => [
+                'preview' => $preview,
                 'progress_percent' => (int) $enrollment->progress_percent,
                 'certificate' => $certificate ? ['number' => $certificate->certificate_number, 'url' => route('certificates.show', $certificate)] : null,
             ],
@@ -84,13 +93,16 @@ class CoursePlayerController extends Controller
                 'lessons' => $module->lessons->map(fn ($item) => $this->lessonPayload($item, $progress->get($item->id), false, (bool) ($lockedMap[$item->id] ?? false), $quizAttempts, $submissions))->values(),
             ])->values(),
             'currentLesson' => $this->lessonPayload($current, $progress->get($current->id), true, (bool) ($lockedMap[$current->id] ?? false), $quizAttempts, $submissions),
+            'note' => $note?->content,
+            'bookmarked' => $bookmarked,
         ]);
     }
 
     public function progress(Request $request, Course $course, Lesson $lesson): RedirectResponse
     {
-        $enrollment = $this->enrollment($request, $course);
+        $enrollment = $this->requireEnrollment($request, $course);
         abort_unless($lesson->course_id === $course->id, 404);
+        abort_if(in_array($lesson->type, ['quiz', 'assignment'], true), 422, 'این درس فقط با آزمون یا تکلیف تکمیل می‌شود.');
 
         $validated = $request->validate(['progress_percent' => ['required', 'integer', 'min:0', 'max:100'], 'status' => ['nullable', 'in:started,completed']]);
         $status = ($validated['status'] ?? null) === 'completed' || (int) $validated['progress_percent'] === 100 ? 'completed' : 'started';
@@ -208,7 +220,7 @@ class CoursePlayerController extends Controller
                 'id' => $latest->id,
                 'content' => $latest->content,
                 'attachment' => $latest->attachment,
-                'attachment_url' => $latest->attachment ? Storage::url($latest->attachment) : null,
+                'attachment_url' => $latest->attachment ? route('learning.assignment.download', $latest) : null,
                 'status' => $latest->status,
                 'score' => $latest->score,
                 'feedback' => $latest->feedback,

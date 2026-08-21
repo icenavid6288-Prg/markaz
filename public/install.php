@@ -8,7 +8,8 @@ declare(strict_types=1);
  * framework tries to connect to the production database.
  */
 
-$root = dirname(__DIR__);
+$declaredRoot = dirname(__DIR__);
+$root = $declaredRoot;
 $lockPath = $root.'/storage/app/installed.lock';
 $isHttps = (! empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || (($_SERVER['SERVER_PORT'] ?? '') === '443');
 
@@ -54,6 +55,99 @@ if ($docReal !== '' && $publicReal !== false && $rootReal !== false) {
 function h(mixed $value): string
 {
     return htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');
+}
+
+function looksLikeProjectRoot(string $path): bool
+{
+    return is_file($path.'/bootstrap/app.php') && is_file($path.'/artisan');
+}
+
+function findProjectRoot(string $fallback): string
+{
+    $candidates = [];
+    foreach ([$fallback, dirname($fallback), dirname(__DIR__), __DIR__, dirname(__DIR__, 2)] as $candidate) {
+        $candidate = rtrim(str_replace('\\', '/', $candidate), '/');
+        if ($candidate !== '' && ! in_array($candidate, $candidates, true)) {
+            $candidates[] = $candidate;
+        }
+    }
+
+    foreach ($candidates as $candidate) {
+        if (looksLikeProjectRoot($candidate)) {
+            return $candidate;
+        }
+    }
+
+    return $fallback;
+}
+
+function vendorAutoloadPath(string $root): string
+{
+    return $root.'/vendor/autoload.php';
+}
+
+function vendorMissingMessage(string $root): string
+{
+    return "پوشه vendor در مسیر پروژه پیدا نشد.\n"
+        ."مسیر بررسی‌شده: ".$root."/vendor/autoload.php\n"
+        ."راه‌حل (روی رایانه خود، نه روی هاست):\n"
+        ."1) در پوشه پروژه اجرا کنید: composer install --no-dev --optimize-autoloader\n"
+        ."2) کل پوشه vendor را کنار پوشه‌های app و public روی هاست آپلود کنید.\n"
+        ."3) صفحه نصب را تازه‌سازی کنید.";
+}
+
+function shellAllowed(string $function): bool
+{
+    if (! function_exists($function)) {
+        return false;
+    }
+
+    $disabled = array_map('trim', explode(',', (string) ini_get('disable_functions')));
+
+    return ! in_array($function, $disabled, true);
+}
+
+function runComposerInstall(string $root): array
+{
+    if (is_file(vendorAutoloadPath($root))) {
+        return [true, 'vendor از قبل موجود است.'];
+    }
+
+    if (! is_file($root.'/composer.json') || ! is_file($root.'/composer.lock')) {
+        return [false, 'فایل composer.json یا composer.lock روی هاست نیست.'];
+    }
+
+    if (! shellAllowed('exec') && ! shellAllowed('proc_open')) {
+        return [false, vendorMissingMessage($root)."\nهاست اجازه اجرای دستور composer را نمی‌دهد؛ باید پوشه vendor را خودتان آپلود کنید."];
+    }
+
+    $phar = $root.'/composer.phar';
+    if (! is_file($phar)) {
+        $downloaded = @file_get_contents('https://getcomposer.org/download/latest-stable/composer.phar', false, stream_context_create([
+            'http' => ['timeout' => 45, 'follow_location' => 1],
+            'https' => ['timeout' => 45, 'follow_location' => 1],
+        ]));
+        if (is_string($downloaded) && str_starts_with($downloaded, '#!') && @file_put_contents($phar, $downloaded, LOCK_EX) !== false) {
+            @chmod($phar, 0755);
+        }
+    }
+
+    $php = (defined('PHP_BINARY') && PHP_BINARY !== '') ? PHP_BINARY : 'php';
+    $command = is_file($phar)
+        ? escapeshellarg($php).' '.escapeshellarg($phar).' install --no-dev --optimize-autoloader --no-interaction --working-dir='.escapeshellarg($root)
+        : 'composer install --no-dev --optimize-autoloader --no-interaction --working-dir='.escapeshellarg($root);
+
+    $output = [];
+    $code = 1;
+    if (shellAllowed('exec')) {
+        exec($command.' 2>&1', $output, $code);
+    }
+
+    if ($code === 0 && is_file(vendorAutoloadPath($root))) {
+        return [true, implode("\n", $output)];
+    }
+
+    return [false, vendorMissingMessage($root)."\nخروجی composer:\n".implode("\n", $output)];
 }
 
 function envQuote(string $value): string
@@ -307,9 +401,12 @@ function runMigrationsWithRecovery(object $app, object $kernel, string $root): a
  */
 function installInProcess(string $root, array $data): array
 {
-    $autoload = $root.'/vendor/autoload.php';
+    $autoload = vendorAutoloadPath($root);
     if (! is_file($autoload)) {
-        return [1, 'پوشه vendor موجود نیست. ابتدا composer install را روی هاست اجرا کنید و دوباره نصب را شروع کنید.'];
+        [$ok, $composerOutput] = runComposerInstall($root);
+        if (! $ok || ! is_file($autoload)) {
+            return [1, $composerOutput];
+        }
     }
 
     try {
@@ -350,6 +447,10 @@ function installInProcess(string $root, array $data): array
     }
 }
 
+$root = findProjectRoot($declaredRoot);
+$lockPath = $root.'/storage/app/installed.lock';
+$vendorReady = is_file(vendorAutoloadPath($root));
+
 $errors = [];
 $success = false;
 $commandOutput = '';
@@ -369,21 +470,9 @@ $form = [
 ];
 
 if (file_exists($lockPath)) {
-    // Already installed: never reinstall, but keep regenerating the
-    // .htaccess files and show the health check so a 404 after install
-    // can be fixed just by opening this page again.
-    $success = true;
-    $htaccessReports = ensureHtaccessFiles($root);
-    $existingEnv = file_exists($root.'/.env') ? (string) file_get_contents($root.'/.env') : '';
-    $form['app_url'] = envValue($existingEnv, 'APP_URL') ?: $form['app_url'];
-    $tableCount = countDatabaseTables([
-        'driver' => envValue($existingEnv, 'DB_CONNECTION') ?: 'mysql',
-        'database' => envValue($existingEnv, 'DB_DATABASE') ?: ($root.'/database/database.sqlite'),
-        'host' => envValue($existingEnv, 'DB_HOST') ?: '127.0.0.1',
-        'port' => envValue($existingEnv, 'DB_PORT') ?: '3306',
-        'username' => envValue($existingEnv, 'DB_USERNAME') ?: '',
-        'password' => envValue($existingEnv, 'DB_PASSWORD') ?: '',
-    ]);
+    ensureHtaccessFiles($root);
+    header('Location: /', true, 302);
+    exit;
 } elseif (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
     foreach ($form as $key => $default) {
         $form[$key] = trim((string) ($_POST[$key] ?? $default));
@@ -508,18 +597,22 @@ if (file_exists($lockPath)) {
                     $success = true;
                 }
             } else {
-                $errors[] = 'نصب پایگاه‌داده یا ساخت مدیر کامل نشد. خروجی فنی را بررسی کنید.';
+                $errors[] = str_contains($commandOutput, 'vendor')
+                    ? 'پوشه vendor روی هاست موجود نیست. راهنمای زیر را انجام دهید و دوباره نصب کنید.'
+                    : 'نصب پایگاه‌داده یا ساخت مدیر کامل نشد. خروجی فنی را بررسی کنید.';
             }
         }
     }
 }
 
+$vendorReady = is_file(vendorAutoloadPath($root));
 $requirements = [
     ['label' => 'PHP 8.2 یا بالاتر', 'ok' => PHP_VERSION_ID >= 80200],
     ['label' => 'PDO', 'ok' => extension_loaded('pdo')],
     ['label' => 'mbstring', 'ok' => extension_loaded('mbstring')],
     ['label' => 'OpenSSL', 'ok' => extension_loaded('openssl')],
     ['label' => 'Fileinfo', 'ok' => extension_loaded('fileinfo')],
+    ['label' => 'پوشه vendor (کتابخانه‌های PHP)', 'ok' => $vendorReady],
     ['label' => 'پوشه storage قابل نوشتن', 'ok' => is_writable($root.'/storage')],
     ['label' => 'پوشه bootstrap/cache قابل نوشتن', 'ok' => is_writable($root.'/bootstrap/cache')],
 ];
@@ -587,7 +680,19 @@ $hasRequirements = ! in_array(false, array_column($requirements, 'ok'), true);
             <?php endif; ?>
         </section>
     <?php else: ?>
-        <?php if ($errors !== []): ?><section class="card errors"><h2>نصب کامل نشد</h2><?php foreach ($errors as $error): ?><p>• <?= h($error) ?></p><?php endforeach; ?><?php if ($commandOutput !== ''): ?><details><summary>خروجی فنی</summary><pre style="white-space:pre-wrap;direction:ltr;text-align:left;font-size:12px"><?= h($commandOutput) ?></pre></details><?php endif; ?></section><?php endif; ?>
+        <?php if ($errors !== []): ?><section class="card errors"><h2>نصب کامل نشد</h2><?php foreach ($errors as $error): ?><p>• <?= nl2br(h($error)) ?></p><?php endforeach; ?><?php if ($commandOutput !== ''): ?><details open><summary>خروجی فنی</summary><pre dir="ltr" style="white-space:pre-wrap;unicode-bidi:isolate;text-align:left;font-size:12px;line-height:1.7"><?= h($commandOutput) ?></pre></details><?php endif; ?></section><?php endif; ?>
+        <?php if (! $vendorReady): ?>
+            <section class="card errors">
+                <h2>پوشه vendor روی هاست نیست</h2>
+                <p>نصب بدون کتابخانه‌های PHP ممکن نیست. این پوشه داخل Git نیست و باید جداگانه ساخته و آپلود شود.</p>
+                <ol style="line-height:2;color:var(--danger);padding-inline-start:22px">
+                    <li>روی رایانه خود در پوشه پروژه اجرا کنید: <code>composer install --no-dev --optimize-autoloader</code></li>
+                    <li>کل پوشه <code>vendor</code> را کنار پوشه‌های <code>app</code> و <code>public</code> روی هاست آپلود کنید.</li>
+                    <li>همین صفحه را تازه‌سازی کنید تا تیک «پوشه vendor» سبز شود.</li>
+                </ol>
+                <p class="hint">مسیر فعلی پروژه: <code><?= h($root) ?></code></p>
+            </section>
+        <?php endif; ?>
         <?php if ($layout === 'root'): ?>
             <section class="card" style="border-color:#e7c56b;background:#fffaf0">
                 <p><b>ریشه دامنه روی پوشه پروژه تنظیم شده، نه روی <code>public</code>.</b> بعد از نصب، نصب‌کننده یک <code>.htaccess</code> در ریشه می‌سازد که همه درخواست‌ها را به <code>public</code> هدایت می‌کند تا دامنه بدون تغییر تنظیمات هاست کار کند.</p>

@@ -44,12 +44,12 @@ class SurveyTest extends TestCase
                 ->where('remainingCount', 4));
 
         // After registration, survey should be accessible.
-        $this->post('/survey/'.$survey->share_token.'/register', [
+        $this->registerOnSurvey($survey, [
             'name' => 'کاربر تست',
             'phone' => '09120000002',
             'password' => 'password123',
             'password_confirmation' => 'password123',
-        ])->assertRedirect('/survey/'.$survey->share_token);
+        ]);
 
         $this->assertAuthenticated();
 
@@ -169,12 +169,12 @@ class SurveyTest extends TestCase
         $this->assertSame([(string) $questions[0]->id => 'والد', (string) $questions[1]->id => 'بله'], $response->answers);
         $this->assertSame('in_progress', $response->status);
 
-        $this->post('/survey/'.$survey->share_token.'/register', [
+        $this->registerOnSurvey($survey, [
             'name' => 'کاربر نظرسنجی',
             'phone' => '09120000001',
             'password' => 'password123',
             'password_confirmation' => 'password123',
-        ])->assertRedirect('/survey/'.$survey->share_token);
+        ]);
 
         $this->assertAuthenticated();
         $this->get('/survey/'.$survey->share_token)
@@ -528,6 +528,21 @@ class SurveyTest extends TestCase
         }
 
         return $codepoints;
+    }
+
+    /** @param array{name: string, phone: string, password: string, password_confirmation: string} $payload */
+    private function registerOnSurvey(Survey $survey, array $payload): void
+    {
+        $this->post('/survey/'.$survey->share_token.'/register', $payload)
+            ->assertRedirect('/survey/'.$survey->share_token.'/register?step=code');
+
+        $code = session('survey_register_dev_code');
+        $this->assertNotNull($code);
+
+        $this->post('/survey/'.$survey->share_token.'/register/verify', [
+            'phone' => $payload['phone'],
+            'code' => $code,
+        ])->assertRedirect('/survey/'.$survey->share_token);
     }
 
     private function makeSurvey(array $attributes = []): Survey
