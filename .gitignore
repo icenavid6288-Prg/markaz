@@ -33,6 +33,9 @@ Thumbs.db
 /playwright-report
 /blob-report
 
+# Playwright visual-test baseline screenshots (regenerable; keep repo size small)
+/tests/visual/baselines
+
 # Desktop app
 /desktop/node_modules
 /desktop/release
