@@ -585,6 +585,24 @@ if (file_exists($lockPath)) {
                     $errors[] = 'نصب انجام شد اما قفل نصب ذخیره نشد؛ storage/app را قابل نوشتن کنید و دوباره بررسی کنید.';
                 } else {
                     @chmod($lockPath, 0600);
+                    @chmod($root.'/storage', 0775);
+                    @chmod($root.'/bootstrap/cache', 0775);
+                    foreach ([
+                        $root.'/storage/logs',
+                        $root.'/storage/framework',
+                        $root.'/storage/framework/cache',
+                        $root.'/storage/framework/cache/data',
+                        $root.'/storage/framework/sessions',
+                        $root.'/storage/framework/views',
+                        $root.'/storage/app',
+                        $root.'/storage/app/public',
+                        $root.'/storage/app/private',
+                    ] as $dir) {
+                        if (! is_dir($dir)) {
+                            @mkdir($dir, 0775, true);
+                        }
+                        @chmod($dir, 0775);
+                    }
                     $htaccessReports = ensureHtaccessFiles($root);
                     $tableCount = countDatabaseTables([
                         'driver' => $form['driver'],

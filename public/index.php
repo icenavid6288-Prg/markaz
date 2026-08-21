@@ -5,6 +5,15 @@ use Illuminate\Http\Request;
 
 define('LARAVEL_START', microtime(true));
 
+register_shutdown_function(static function (): void {
+    $error = error_get_last();
+    if (! $error || ! in_array($error['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR], true)) {
+        return;
+    }
+    $line = date('c').' '.$error['message'].' in '.$error['file'].':'.$error['line']."\n";
+    @file_put_contents(__DIR__.'/../storage/logs/php-fatal.log', $line, FILE_APPEND);
+});
+
 // Determine if the application is in maintenance mode...
 if (file_exists($maintenance = __DIR__.'/../storage/framework/maintenance.php')) {
     require $maintenance;
