@@ -16,9 +16,12 @@ use Illuminate\Validation\Rules;
 use Inertia\Inertia;
 use Inertia\Response;
 
+/**
+ * @phpstan-return Response|RedirectResponse
+ */
 class SurveyController extends Controller
 {
-    public function show(Request $request, Survey $survey): Response
+    public function show(Request $request, Survey $survey): Response|RedirectResponse
     {
         $this->ensureAvailable($survey);
         $response = $this->resolveResponse($request, $survey);
@@ -37,14 +40,6 @@ class SurveyController extends Controller
         $visibleQuestions = $registrationRequired ? $questions->take($registrationAfter) : $questions;
         $answers = $response->answers ?? [];
 
-        // One question per page: the user must answer the current question before
-        // the survey advances to the next one. Use array_key_exists rather than
-        // empty() so that falsy answers (e.g. number 0) are correctly treated as
-        // answered and do not cause the page to loop back on refresh.
-        $current = $visibleQuestions->first(fn (SurveyQuestion $question) => ! array_key_exists((string) $question->id, $answers));
-        $answers = collect($answers)->filter(fn ($value, $key) => $visibleQuestions->pluck('id')->contains((int) $key))->all();
-        $answeredCount = count(array_filter($answers, fn ($value) => ! $this->isEmptyAnswer($value)));
-
         return Inertia::render('Survey/Show', [
             'survey' => [
                 'title' => $survey->title,
@@ -55,14 +50,12 @@ class SurveyController extends Controller
                 'allow_back_navigation' => (bool) $survey->setting('allow_back_navigation', true),
                 'completion_redirect' => $this->safeRedirect((string) $survey->setting('completion_redirect', '')),
             ],
-            'question' => $current ? $this->presentQuestion($current) : null,
-            'questions_count' => $visibleQuestions->count(),
-            'answers' => $answers,
-            'current_index' => $current ? $visibleQuestions->search(fn (SurveyQuestion $question) => $question->id === $current->id) : $visibleQuestions->count(),
+            'questions' => $visibleQuestions->map(fn (SurveyQuestion $q) => $this->presentQuestion($q))->values()->all(),
+            'answers' => collect($answers)->filter(fn ($value, $key) => $visibleQuestions->pluck('id')->contains((int) $key))->all(),
             'registered' => $isRegistered,
             'registrationRequired' => $registrationRequired,
             'registrationAfter' => $registrationAfter,
-            'completed' => $response->status === 'completed' || $current === null,
+            'completed' => $response->status === 'completed',
             'totalQuestions' => $questions->count(),
         ]);
     }
@@ -78,22 +71,32 @@ class SurveyController extends Controller
             ? $questions->take($registrationAfter)->pluck('id')->all()
             : $questions->pluck('id')->all();
 
-        // Single-question mode: the payload carries the question id + its answer.
-        $questionId = (int) $request->input('question_id');
-        $value = $request->input('answer');
-        abort_unless(in_array($questionId, $visibleIds, true), 422, 'سؤال موردنظر در این مرحله قابل پاسخ‌گویی نیست.');
-
-        /** @var SurveyQuestion $question */
-        $question = $questions->firstWhere('id', $questionId);
-        if ($question->is_required && $this->isEmptyAnswer($value)) {
-            return back()->withErrors(['answers.'.$question->id => 'پاسخ این سؤال الزامی است.']);
-        }
-        if (! $this->isValidAnswer($question, $value)) {
-            return back()->withErrors(['answers.'.$question->id => 'پاسخ این سؤال معتبر نیست.']);
-        }
-
+        // Accept all answers at once: payload is answers[question_id] = value.
+        $rawAnswers = $request->input('answers', []);
         $answers = $response->answers ?? [];
-        $answers[(string) $question->id] = $value;
+        $errors = [];
+
+        foreach ($visibleIds as $qid) {
+            $value = $rawAnswers[$qid] ?? $rawAnswers[(string) $qid] ?? null;
+            /** @var SurveyQuestion|null $question */
+            $question = $questions->firstWhere('id', $qid);
+            if (! $question) {
+                continue;
+            }
+            if ($question->is_required && $this->isEmptyAnswer($value)) {
+                $errors['answers.'.$qid] = 'پاسخ این سؤال الزامی است.';
+                continue;
+            }
+            if (! $this->isEmptyAnswer($value) && ! $this->isValidAnswer($question, $value)) {
+                $errors['answers.'.$qid] = 'پاسخ این سؤال معتبر نیست.';
+                continue;
+            }
+            $answers[(string) $qid] = $value;
+        }
+
+        if ($errors) {
+            return back()->withErrors($errors);
+        }
 
         if ($request->user() && ! $response->user_id) {
             $response->user_id = $request->user()->id;
@@ -108,30 +111,20 @@ class SurveyController extends Controller
             'user_agent' => Str::limit((string) $request->userAgent(), 1000),
         ])->save();
 
+        // After answering the visible questions, check if registration is needed
+        // before the survey can be marked as completed.
         $needsRegistration = ! $request->user() && ! $response->user_id
-            && $registrationAfter > 0 && $registrationAfter < $questions->count()
-            && count($answers) >= $registrationAfter;
+            && $registrationAfter > 0 && $registrationAfter < $questions->count();
         if ($needsRegistration) {
             return redirect()->route('survey.register', $survey);
         }
 
-        // Find the next unanswered visible question, otherwise the survey is complete.
-        // A question is considered answered as soon as its key exists in the answers
-        // array — even if the stored value is falsy (e.g. 0 or empty string).
-        $next = $questions
-            ->whereIn('id', $visibleIds)
-            ->first(fn (SurveyQuestion $item) => ! array_key_exists((string) $item->id, $answers));
-
-        if ($next === null) {
-            if ($response->status !== 'completed') {
-                $response->update(['status' => 'completed', 'completed_at' => now()]);
-                app(SurveyLeadLinker::class)->link($response);
-            }
-
-            return redirect()->route('survey.show', $survey);
+        if ($response->status !== 'completed') {
+            $response->update(['status' => 'completed', 'completed_at' => now()]);
+            app(SurveyLeadLinker::class)->link($response);
         }
 
-        return redirect()->route('survey.show', $survey)->with('next_question', $next->id);
+        return redirect()->route('survey.show', $survey);
     }
 
     public function register(Request $request, Survey $survey): Response|RedirectResponse

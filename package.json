@@ -1,0 +1,45 @@
+{
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "dev": "vite",
+        "build": "tsc && vite build",
+        "visual:test": "playwright test",
+        "visual:update": "playwright test --update-snapshots",
+        "desktop:install": "npm --prefix desktop install",
+        "desktop": "npm --prefix desktop start",
+        "desktop:icon": "npm --prefix desktop run icon",
+        "desktop:dist": "npm --prefix desktop run dist"
+    },
+    "devDependencies": {
+        "@headlessui/react": "^2.2.10",
+        "@inertiajs/react": "^3.6.1",
+        "@inertiajs/vite": "^3.6.1",
+        "@playwright/test": "^1.62.1",
+        "@tailwindcss/forms": "^0.5.11",
+        "@tailwindcss/vite": "^4.3.3",
+        "@types/canvas-confetti": "^1.9.0",
+        "@types/node": "^22.10.0",
+        "@types/react": "^19.0.0",
+        "@types/react-dom": "^19.0.0",
+        "@vitejs/plugin-react": "^6.0.5",
+        "autoprefixer": "^10.4.20",
+        "axios": "^1.7.0",
+        "concurrently": "^9.1.0",
+        "laravel-vite-plugin": "^3.1.3",
+        "pngjs": "^7.0.0",
+        "postcss": "^8.4.49",
+        "react": "^19.0.0",
+        "react-dom": "^19.0.0",
+        "tailwindcss": "^4.3.3",
+        "typescript": "^5.7.0",
+        "vite": "^8.2.1"
+    },
+    "dependencies": {
+        "@fontsource-variable/vazirmatn": "^5.3.0",
+        "canvas-confetti": "^1.9.4",
+        "lucide-react": "^1.30.0",
+        "qrcode.react": "^4.2.0",
+        "recharts": "^3.10.1"
+    }
+}

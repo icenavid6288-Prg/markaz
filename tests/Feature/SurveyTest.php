@@ -53,16 +53,16 @@ class SurveyTest extends TestCase
 
         $this->assertAuthenticated();
 
-        // Now the user should see Q1.
+        // Now the user should see all questions.
         $this->get('/survey/'.$survey->share_token)
             ->assertInertia(fn ($page) => $page
-                ->where('question.title', 'نقش شما چیست؟')
-                ->where('questions_count', 4)
+                ->has('questions', 4)
+                ->where('questions.0.title', 'نقش شما چیست؟')
                 ->where('registered', true)
                 ->where('completed', false));
     }
 
-    public function test_private_survey_shows_one_question_at_a_time_before_registration(): void
+    public function test_private_survey_shows_visible_questions_before_registration(): void
     {
         $survey = $this->makeSurvey(['status' => 'published', 'settings' => ['registration_after' => 2]]);
 
@@ -70,41 +70,34 @@ class SurveyTest extends TestCase
             ->assertOk()
             ->assertInertia(fn ($page) => $page
                 ->component('Survey/Show')
-                ->where('question.title', 'نقش شما چیست؟')
-                ->where('questions_count', 2)
-                ->where('current_index', 0)
+                ->has('questions', 2)
                 ->where('registrationRequired', true)
                 ->where('totalQuestions', 4)
                 ->where('completed', false));
     }
 
-    public function test_refreshing_page_does_not_advance_to_next_question(): void
+    public function test_submitting_partial_answers_then_refresh_shows_all_questions(): void
     {
         // Use registration_after = 999 so registration is never required.
         $survey = $this->makeSurvey(['status' => 'published', 'settings' => ['registration_after' => 999]]);
         $questions = $survey->questions()->get();
 
-        // First visit — should show Q1.
+        // First visit — all 4 questions visible.
         $this->get('/survey/'.$survey->share_token)
-            ->assertInertia(fn ($page) => $page->where('question.title', $questions[0]->title));
+            ->assertInertia(fn ($page) => $page->has('questions', 4));
 
-        // Answer Q1 — advances to Q2.
+        // Submit all answers at once — survey completes.
         $this->post('/survey/'.$survey->share_token.'/answer', [
-            'question_id' => $questions[0]->id,
-            'answer' => 'والد',
+            'answers' => [
+                (string) $questions[0]->id => 'والد',
+                (string) $questions[1]->id => 'بله',
+                (string) $questions[2]->id => 'توضیح',
+                (string) $questions[3]->id => '5',
+            ],
         ])->assertRedirect();
 
         $this->get('/survey/'.$survey->share_token)
-            ->assertInertia(fn ($page) => $page
-                ->where('question.title', $questions[1]->title)
-                ->where('current_index', 1));
-
-        // Refresh — must NOT advance to Q3.
-        $this->get('/survey/'.$survey->share_token)
-            ->assertInertia(fn ($page) => $page
-                ->where('question.title', $questions[1]->title)
-                ->where('current_index', 1)
-                ->where('completed', false));
+            ->assertInertia(fn ($page) => $page->where('completed', true));
     }
 
     public function test_numeric_zero_answer_is_not_treated_as_unanswered(): void
@@ -112,30 +105,27 @@ class SurveyTest extends TestCase
         $survey = $this->makeSurvey(['status' => 'published', 'settings' => ['registration_after' => 999]]);
         $questions = $survey->questions()->get();
 
-        // Use a number-type question.
+        // Make Q1 optional and numeric.
         $questions[0]->update(['type' => 'number', 'options' => [], 'is_required' => false]);
 
-        // Visit, answer Q1 with 0.
+        // Submit Q1 with 0 — should complete since registration_after=999.
         $this->get('/survey/'.$survey->share_token);
         $this->post('/survey/'.$survey->share_token.'/answer', [
-            'question_id' => $questions[0]->id,
-            'answer' => '0',
+            'answers' => [
+                (string) $questions[0]->id => '0',
+                (string) $questions[1]->id => 'بله',
+                (string) $questions[2]->id => 'توضیح',
+                (string) $questions[3]->id => '3',
+            ],
         ])->assertRedirect();
 
-        // Should be on Q2 now, not stuck on Q1.
-        $this->get('/survey/'.$survey->share_token)
-            ->assertInertia(fn ($page) => $page
-                ->where('question.title', $questions[1]->title)
-                ->where('current_index', 1));
-
-        // Refresh — should still be on Q2.
-        $this->get('/survey/'.$survey->share_token)
-            ->assertInertia(fn ($page) => $page
-                ->where('question.title', $questions[1]->title)
-                ->where('current_index', 1));
+        $response = SurveyResponse::firstOrFail();
+        // The 0 value should be preserved, not treated as empty.
+        $this->assertSame('0', $response->answers[(string) $questions[0]->id]);
+        $this->assertSame('completed', $response->status);
     }
 
-    public function test_optional_question_with_empty_answer_advances_and_does_not_loop(): void
+    public function test_optional_question_with_empty_answer_completes_without_error(): void
     {
         $survey = $this->makeSurvey(['status' => 'published', 'settings' => ['registration_after' => 999]]);
         $questions = $survey->questions()->get();
@@ -143,24 +133,21 @@ class SurveyTest extends TestCase
         // Make Q1 optional.
         $questions[0]->update(['is_required' => false]);
 
-        // Visit, skip Q1 (submit empty).
+        // Submit all answers with Q1 empty — should complete successfully.
         $this->get('/survey/'.$survey->share_token);
         $this->post('/survey/'.$survey->share_token.'/answer', [
-            'question_id' => $questions[0]->id,
-            'answer' => '',
+            'answers' => [
+                (string) $questions[0]->id => '',
+                (string) $questions[1]->id => 'بله',
+                (string) $questions[2]->id => 'توضیح',
+                (string) $questions[3]->id => '4',
+            ],
         ])->assertRedirect();
 
-        // Should advance to Q2.
-        $this->get('/survey/'.$survey->share_token)
-            ->assertInertia(fn ($page) => $page
-                ->where('question.title', $questions[1]->title)
-                ->where('current_index', 1));
-
-        // Refresh — should still be on Q2, not loop back to Q1.
-        $this->get('/survey/'.$survey->share_token)
-            ->assertInertia(fn ($page) => $page
-                ->where('question.title', $questions[1]->title)
-                ->where('current_index', 1));
+        $response = SurveyResponse::firstOrFail();
+        $this->assertSame('completed', $response->status);
+        // Empty optional answer is stored as null (ConvertEmptyStringsToNull middleware).
+        $this->assertNull($response->answers[(string) $questions[0]->id]);
     }
 
     public function test_answers_survive_registration_and_user_can_complete_survey(): void
@@ -170,16 +157,12 @@ class SurveyTest extends TestCase
 
         $this->get('/survey/'.$survey->share_token);
 
-        // Question 1 — answered, still pre-registration.
+        // Submit first 2 visible questions — should redirect to registration.
         $this->post('/survey/'.$survey->share_token.'/answer', [
-            'question_id' => $questions[0]->id,
-            'answer' => 'والد',
-        ])->assertRedirect('/survey/'.$survey->share_token);
-
-        // Question 2 — answered; this is the registration wall.
-        $this->post('/survey/'.$survey->share_token.'/answer', [
-            'question_id' => $questions[1]->id,
-            'answer' => 'بله',
+            'answers' => [
+                (string) $questions[0]->id => 'والد',
+                (string) $questions[1]->id => 'بله',
+            ],
         ])->assertRedirect('/survey/'.$survey->share_token.'/register');
 
         $response = SurveyResponse::firstOrFail();
@@ -196,22 +179,18 @@ class SurveyTest extends TestCase
         $this->assertAuthenticated();
         $this->get('/survey/'.$survey->share_token)
             ->assertInertia(fn ($page) => $page
-                ->where('question.title', 'نظر شما چیست؟')
-                ->where('questions_count', 4)
-                ->where('current_index', 2)
+                ->has('questions', 4)
                 ->where('registered', true)
                 ->where('completed', false));
 
-        // Question 3.
+        // Submit remaining questions — completes the survey.
         $this->post('/survey/'.$survey->share_token.'/answer', [
-            'question_id' => $questions[2]->id,
-            'answer' => 'توضیح',
-        ])->assertRedirect('/survey/'.$survey->share_token);
-
-        // Question 4 — last one completes the survey.
-        $this->post('/survey/'.$survey->share_token.'/answer', [
-            'question_id' => $questions[3]->id,
-            'answer' => '5',
+            'answers' => [
+                (string) $questions[0]->id => 'والد',
+                (string) $questions[1]->id => 'بله',
+                (string) $questions[2]->id => 'توضیح',
+                (string) $questions[3]->id => '5',
+            ],
         ])->assertRedirect('/survey/'.$survey->share_token);
 
         $this->assertDatabaseHas('survey_responses', [

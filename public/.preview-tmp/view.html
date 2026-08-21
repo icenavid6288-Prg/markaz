@@ -1,0 +1,21 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>img</title>
+<style>
+  html,body{margin:0;background:#000;overflow:hidden}
+  #frame{position:fixed;inset:0;overflow:hidden}
+  #img{display:block;width:1904px;height:auto;position:absolute;top:0;left:0}
+</style>
+</head>
+<body>
+<div id="frame"><img id="img" src="current.png"></div>
+<script>
+  window.setView = function(x, y, w) {
+    const img = document.getElementById('img');
+    img.style.width = w + 'px';
+    img.style.left = (-x) + 'px';
+    img.style.top = (-y) + 'px';
+  };
+</script>
+</body>
+</html>
