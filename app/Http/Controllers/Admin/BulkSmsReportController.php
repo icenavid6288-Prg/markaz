@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\BulkSmsRun;
+use App\Support\BulkSmsTables;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -12,6 +13,8 @@ class BulkSmsReportController extends Controller
 {
     public function index(Request $request): Response
     {
+        BulkSmsTables::ensure();
+
         $runs = BulkSmsRun::query()
             ->when($request->string('status')->isNotEmpty(), fn ($query) => $query->where('status', $request->string('status')->toString()))
             ->latest()

@@ -1,5 +1,5 @@
 import { Link, router, useForm, usePage } from '@inertiajs/react';
-import { ArrowRight, BarChart3, Check, ClipboardPen, Clock, Copy, FileUp, Info, Megaphone, MessagesSquare, Plus, Save, Send, Share2, Sparkles, Target, Trash2 } from 'lucide-react';
+import { ArrowRight, BarChart3, Check, ClipboardPen, Clock, Copy, FileUp, ImagePlus, Info, Megaphone, MessagesSquare, Plus, Save, Send, Share2, Sparkles, Target, Trash2 } from 'lucide-react';
 import { useState, type FormEvent, type ReactNode } from 'react';
 import AdminLayout from '@/Layouts/AdminLayout';
 import { Button } from '@/Components/ui/Button';
@@ -9,7 +9,7 @@ type QuestionSettings = Record<string, string | number | boolean | null>;
 interface Question { type: string; title: string; description: string | null; options: string[]; settings: QuestionSettings; is_required: boolean; include_in_summary: boolean; }
 interface Settings { registration_after: number; show_progress: boolean; randomize_questions: boolean; allow_multiple_responses: boolean; allow_back_navigation: boolean; completion_redirect: string; summary_intro: string; summary_outro: string; }
 interface Template { key: string; label: string; short_label: string; description: string; title: string; intro: string; welcome_message: string; completion_message: string; default_settings: Settings; questions: Question[]; }
-interface PerslineForm { id: number; title: string; persline_type: string; share_token: string; share_url: string; description: string | null; welcome_message: string | null; completion_message: string | null; status: 'draft' | 'published' | 'closed'; settings: Settings; questions: Question[]; questions_count: number; responses_count: number; completed_responses_count: number; eitaa_scheduled_at: string | null; eitaa_published_at: string | null; eitaa_summary_sent_at: string | null; }
+interface PerslineForm { id: number; title: string; persline_type: string; share_token: string; share_url: string; description: string | null; welcome_message: string | null; completion_message: string | null; status: 'draft' | 'published' | 'closed'; settings: Settings; questions: Question[]; questions_count: number; responses_count: number; completed_responses_count: number; eitaa_scheduled_at: string | null; eitaa_published_at: string | null; eitaa_summary_sent_at: string | null; poster_url?: string | null; }
 
 const defaultSettings: Settings = { registration_after: 0, show_progress: true, randomize_questions: false, allow_multiple_responses: false, allow_back_navigation: true, completion_redirect: '', summary_intro: '', summary_outro: '' };
 const emptyQuestion = (): Question => ({ type: 'single', title: '', description: null, options: [], settings: {}, is_required: true, include_in_summary: true });
@@ -24,7 +24,7 @@ export default function PerslineForm() {
 
     const form = useForm<{
         persline_type: string; title: string; description: string; welcome_message: string; completion_message: string; status: string;
-        settings: Settings; questions: Question[]; eitaa_scheduled_at: string; file: File | null;
+        settings: Settings; questions: Question[]; eitaa_scheduled_at: string; file: File | null; poster_file: File | null; remove_poster: boolean;
     }>({
         persline_type: existing?.persline_type ?? selectedTemplate?.key ?? '',
         title: existing?.title ?? selectedTemplate?.title ?? '',
@@ -40,6 +40,8 @@ export default function PerslineForm() {
                 : [emptyQuestion()],
         eitaa_scheduled_at: existing?.eitaa_scheduled_at ?? '',
         file: null,
+        poster_file: null,
+        remove_poster: false,
     });
 
     const input = 'w-full rounded-xl border border-navy/10 bg-white px-4 py-3 text-sm text-navy outline-none transition-colors focus:border-brand-500 focus:ring-2 focus:ring-brand-200';
@@ -113,6 +115,27 @@ export default function PerslineForm() {
             <div><label className="mb-1.5 block text-xs font-black text-navy/70">وضعیت</label><select value={form.data.status} onChange={(e) => form.setData('status', e.target.value)} className={input}><option value="draft">پیش‌نویس (لینک غیرفعال)</option><option value="published">فعال</option><option value="closed">بسته‌شده</option></select>{form.errors.status && <p className="mt-1 text-xs font-bold text-red-600">{form.errors.status}</p>}</div>
             <div><label className="mb-1.5 block text-xs font-black text-navy/70">تعداد سؤال قبل از ثبت‌نام</label><input type="number" min={0} max={1000} value={form.data.settings.registration_after} onChange={(e) => setSetting('registration_after', Number(e.target.value))} className={input} /><p className="mt-1.5 text-[0.68rem] leading-5 text-navy/45">صفر یعنی ثبت‌نام در ابتدا؛ مثلاً ۳ یعنی سه سؤال اول آزاد و ادامه بعد از ورود.</p>{form.errors['settings.registration_after'] && <p className="mt-1 text-xs font-bold text-red-600">{form.errors['settings.registration_after']}</p>}</div>
             <div className="sm:col-span-2"><label className="mb-1.5 block text-xs font-black text-navy/70">مقدمه (نمایش زیر عنوان)</label><textarea rows={3} value={form.data.description} onChange={(e) => form.setData('description', e.target.value)} className={input} /></div>
+            <div className="sm:col-span-2"><label className="mb-1.5 block text-xs font-black text-navy/70">پوستر ابتدای فرم</label>
+                <div className="rounded-2xl border border-dashed border-brand-200 bg-brand-50/40 p-4">
+                    {existing?.poster_url && !form.data.remove_poster && !form.data.poster_file && (
+                        <img src={existing.poster_url} alt="پوستر فرم" className="mb-3 max-h-56 w-full rounded-xl object-cover ring-1 ring-navy/10" />
+                    )}
+                    {form.data.poster_file && (
+                        <p className="mb-3 text-xs font-black text-brand-800">فایل انتخاب‌شده: {form.data.poster_file.name}</p>
+                    )}
+                    <div className="flex flex-wrap items-center gap-2">
+                        <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-xs font-black text-brand-800 ring-1 ring-brand-200 hover:bg-brand-50">
+                            <ImagePlus className="size-4" /> انتخاب تصویر پوستر
+                            <input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={(e) => form.setData({ ...form.data, poster_file: e.target.files?.[0] ?? null, remove_poster: false })} />
+                        </label>
+                        {(existing?.poster_url || form.data.poster_file) && (
+                            <button type="button" onClick={() => form.setData({ ...form.data, poster_file: null, remove_poster: true })} className="inline-flex items-center gap-1 rounded-xl px-3 py-2 text-xs font-bold text-red-600 hover:bg-red-50">حذف پوستر</button>
+                        )}
+                    </div>
+                    <p className="mt-2 text-[0.68rem] leading-5 text-navy/45">این عکس بالای فرم کاربر نمایش داده می‌شود. JPG، PNG یا WEBP تا ۴ مگابایت.</p>
+                    {form.errors.poster_file && <p className="mt-1 text-xs font-bold text-red-600">{form.errors.poster_file}</p>}
+                </div>
+            </div>
             <div className="sm:col-span-2"><label className="mb-1.5 block text-xs font-black text-navy/70">پیام خوش‌آمدگویی</label><textarea rows={3} value={form.data.welcome_message} onChange={(e) => form.setData('welcome_message', e.target.value)} className={input} /></div>
             <div className="sm:col-span-2"><label className="mb-1.5 block text-xs font-black text-navy/70">پیام پایان فرم</label><textarea rows={3} value={form.data.completion_message} onChange={(e) => form.setData('completion_message', e.target.value)} className={input} /></div>
             <div className="sm:col-span-2"><label className="mb-1.5 block text-xs font-black text-navy/70">انتشار خودکار در کانال ایتا</label><input type="datetime-local" value={form.data.eitaa_scheduled_at} onChange={(e) => form.setData('eitaa_scheduled_at', e.target.value)} className={input} /><p className="mt-1.5 text-[0.68rem] leading-5 text-navy/45">در تاریخ مشخص‌شده، لینک فرم به‌صورت خودکار در کانال ایتا منتشر می‌شود. برای حذف زمان‌بندی، مقدار را خالی کنید. (نیازمند فعال بودن cron هاست است)</p>{form.errors.eitaa_scheduled_at && <p className="mt-1 text-xs font-bold text-red-600">{form.errors.eitaa_scheduled_at}</p>}</div>

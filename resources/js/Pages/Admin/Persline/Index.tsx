@@ -57,6 +57,7 @@ export default function PerslineIndex() {
                     <div className="flex items-center gap-2 text-xs font-black text-brand-200"><ClipboardPen className="size-4" /> لیدگیری با فرم‌های آماده</div>
                     <h1 className="mt-3 text-2xl font-black md:text-3xl">فرم‌های پرسلاین</h1>
                     <p className="mt-2 max-w-2xl text-sm leading-7 text-white/65">از یک قالب آماده شروع کنید، سؤال‌ها را ویرایش کنید و لینک را در تبلیغات یا کانال ایتا منتشر کنید. پاسخ‌ها به CRM می‌رسند.</p>
+                    <div className="mt-3 inline-flex items-center rounded-lg bg-white/10 px-3 py-1 text-[0.68rem] font-black text-brand-100">نسخه OTP + نتایج کاربران · ۱۴۰۵/۰۶/۰۱</div>
                 </div>
                 <Link href="/admin/persline/create" className="inline-flex items-center gap-2 rounded-xl bg-white px-5 py-3 text-sm font-black text-deep-green shadow-soft hover:bg-brand-100"><Plus className="size-4" /> فرم جدید</Link>
             </div>

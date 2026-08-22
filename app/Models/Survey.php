@@ -82,4 +82,13 @@ class Survey extends Model
     {
         return $this->settings[$key] ?? $default;
     }
+
+    public function posterUrl(): string
+    {
+        $path = trim((string) $this->setting('poster', ''));
+
+        return $path !== '' && str_starts_with($path, '/') && ! str_starts_with($path, '//')
+            ? $path
+            : '';
+    }
 }

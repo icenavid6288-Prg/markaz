@@ -38,3 +38,6 @@ Thumbs.db
 # Desktop app
 /desktop/node_modules
 /desktop/release
+
+/public/images/surveys/*
+!/public/images/surveys/.gitkeep

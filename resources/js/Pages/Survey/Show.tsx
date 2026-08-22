@@ -5,7 +5,7 @@ import type { PageProps } from '@/types';
 
 type AnswerValue = string | number | string[];
 interface Question { id: number; type: string; title: string; description?: string | null; options: string[]; required: boolean; }
-interface SurveyData { title: string; description?: string | null; welcome_message?: string | null; completion_message: string; show_progress: boolean; completion_redirect: string; }
+interface SurveyData { title: string; description?: string | null; welcome_message?: string | null; completion_message: string; show_progress: boolean; completion_redirect: string; poster_url?: string | null; }
 
 export default function SurveyShow() {
     const { survey, questions, answers: initialAnswers, registered, registrationRequired, registrationAfter, completed, totalQuestions, errors } = usePage<PageProps & {
@@ -39,6 +39,8 @@ export default function SurveyShow() {
 
     return <div dir="rtl" className="min-h-screen bg-soft-gray px-4 py-8 md:px-6"><Head title={survey.title} /><main className="mx-auto flex w-full max-w-3xl flex-col gap-5">
         <header className="flex items-center justify-between rounded-2xl bg-white px-5 py-4 shadow-soft ring-1 ring-navy/5"><div className="flex items-center gap-3"><span className="flex size-10 items-center justify-center rounded-xl bg-brand-100 text-brand-700"><ClipboardList className="size-5" /></span><div><div className="text-[0.65rem] font-black text-brand-700">نظرسنجی خصوصی</div><h1 className="text-sm font-black text-navy">{survey.title}</h1></div></div><a href="/" className="inline-flex items-center gap-1 text-xs font-bold text-navy/45 hover:text-brand-700">ورود به سایت <ArrowLeft className="size-3.5" /></a></header>
+
+        {survey.poster_url && <section className="overflow-hidden rounded-[2rem] bg-white shadow-lift ring-1 ring-navy/5"><img src={survey.poster_url} alt={survey.title} className="max-h-[28rem] w-full object-cover" /></section>}
 
         <section className="relative overflow-hidden rounded-[2rem] bg-deep-gradient p-6 text-white shadow-lift md:p-9"><div className="pointer-events-none absolute -left-16 -top-16 size-64 rounded-full bg-brand-400/20 blur-3xl" /><div className="relative"><div className="flex items-center gap-2 text-xs font-black text-brand-200"><Sparkles className="size-4" /> دیدگاه شما برای ما مهم است</div><h2 className="mt-3 text-2xl font-black leading-relaxed md:text-3xl">{survey.title}</h2>{survey.description && <p className="mt-3 text-sm leading-8 text-white/65">{survey.description}</p>}{survey.welcome_message && <p className="mt-4 rounded-xl border border-white/10 bg-white/5 p-3 text-sm leading-7 text-white/80">{survey.welcome_message}</p>}</div></section>
 

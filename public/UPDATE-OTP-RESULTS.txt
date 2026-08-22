@@ -1,0 +1,4 @@
+ok
+version=persline-otp-results-1405-06-01
+register=phone+sms
+admin=/admin/persline/{token}/responses
