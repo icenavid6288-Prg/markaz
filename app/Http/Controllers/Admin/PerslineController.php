@@ -7,6 +7,7 @@ use App\Models\Survey;
 use App\Models\SurveyQuestion;
 use App\Services\Eitaa\EitaaPublisher;
 use App\Support\PerslineTemplates;
+use App\Support\SurveyResults;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
@@ -14,6 +15,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class PerslineController extends Controller
 {
@@ -104,6 +106,20 @@ class PerslineController extends Controller
         $survey->delete();
 
         return back()->with('success', 'فرم پرسلاین و پاسخ‌های آن حذف شد.');
+    }
+
+    public function responses(Request $request, Survey $survey, SurveyResults $results): Response
+    {
+        $this->ensurePersline($survey);
+
+        return Inertia::render('Admin/Surveys/Responses', $results->page($survey, $request, 'persline'));
+    }
+
+    public function export(Survey $survey, SurveyResults $results): StreamedResponse
+    {
+        $this->ensurePersline($survey);
+
+        return $results->csv($survey, 'persline');
     }
 
     public function publishToEitaa(Survey $survey, EitaaPublisher $publisher): RedirectResponse

@@ -155,6 +155,44 @@ class AdminPerslineTest extends TestCase
         $this->assertSame(['گزینه یک', 'گزینه دو'], $form->questions()->first()->options);
     }
 
+    public function test_admin_can_view_each_users_answers_and_export_csv(): void
+    {
+        $admin = User::factory()->create();
+        $admin->assignRole('admin');
+        $respondent = User::factory()->create(['name' => 'سارا محمدی', 'phone' => '09121112233']);
+        $form = $this->makeForm(['status' => 'published']);
+        $question = $form->questions()->first();
+        $form->responses()->create([
+            'user_id' => $respondent->id,
+            'session_token' => Str::random(32),
+            'status' => 'completed',
+            'answers' => [(string) $question->id => '۱۵–۱۶'],
+            'answered_count' => 1,
+            'completed_at' => now(),
+        ]);
+
+        $this->actingAs($admin)
+            ->get("/admin/persline/{$form->share_token}/responses")
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('Admin/Surveys/Responses')
+                ->where('kind', 'persline')
+                ->where('survey.title', $form->title)
+                ->where('summary.completed', 1)
+                ->where('responses.data.0.user.name', 'سارا محمدی')
+                ->where('responses.data.0.user.phone', '09121112233')
+                ->where('responses.data.0.answers.0.value', '۱۵–۱۶'));
+
+        $csv = $this->actingAs($admin)
+            ->get("/admin/persline/{$form->share_token}/responses.csv")
+            ->assertOk()
+            ->streamedContent();
+
+        $this->assertStringContainsString('سارا محمدی', $csv);
+        $this->assertStringContainsString('09121112233', $csv);
+        $this->assertStringContainsString('۱۵–۱۶', $csv);
+    }
+
     public function test_admin_can_delete_a_form(): void
     {
         $admin = User::factory()->create();

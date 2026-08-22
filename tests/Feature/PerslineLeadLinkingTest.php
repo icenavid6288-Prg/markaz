@@ -82,8 +82,13 @@ class PerslineLeadLinkingTest extends TestCase
         $this->post("/survey/{$survey->share_token}/register", [
             'name' => 'ثبت‌نامی',
             'phone' => '09123456787',
-            'password' => 'password',
-            'password_confirmation' => 'password',
+        ])->assertRedirect(route('survey.register', ['survey' => $survey, 'step' => 'code']));
+
+        $code = session('survey_register_dev_code');
+        $this->assertNotNull($code);
+        $this->post("/survey/{$survey->share_token}/register/verify", [
+            'phone' => '09123456787',
+            'code' => $code,
         ])->assertRedirect();
 
         $user = User::where('phone', '09123456787')->firstOrFail();
