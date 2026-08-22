@@ -1,4 +1,4 @@
-import { Link, usePage } from '@inertiajs/react';
+import { Link, router, usePage } from '@inertiajs/react';
 import { ReviewComposer, type ExistingReviewData } from '@/Components/ReviewComposer';
 import {
     ArrowLeft,
@@ -10,6 +10,7 @@ import {
     ChevronLeft,
     Clock,
     GraduationCap,
+    Heart,
     HeartHandshake,
     LayoutList,
     MessageCircle,
@@ -93,7 +94,7 @@ function Avatar({ name, avatar, large = false }: { name: string; avatar?: string
 }
 
 export default function CourseShow() {
-    const { course, related, reviews, review_summary, my_review, can_review, enrollment, auth } = usePage<
+    const { course, related, reviews, review_summary, my_review, can_review, enrollment, auth, wishlisted = false } = usePage<
         PageProps & {
             course: CourseDetail;
             related: CourseCardData[];
@@ -102,6 +103,7 @@ export default function CourseShow() {
             my_review?: ExistingReviewData | null;
             can_review: boolean;
             enrollment: EnrollmentState;
+            wishlisted?: boolean;
         }
     >().props;
 
@@ -234,7 +236,7 @@ export default function CourseShow() {
                         {activeTab === 'curriculum' && <section id="course-panel-curriculum" role="tabpanel" className="course-tab-panel">
                             <div className="hero-kicker"><span className="hero-kicker-line" /><span>نقشه یادگیری</span></div>
                             <div className="flex flex-wrap items-end justify-between gap-3"><h2 className="mt-3 text-2xl font-black text-navy md:text-3xl">سرفصل‌های دوره</h2><span className="text-xs font-bold text-navy/45">{formatNumber(course.modules.length)} فصل · {formatNumber(totalLessons)} درس</span></div>
-                            <div className="mt-7 flex flex-col gap-4">{course.modules.map((module, index) => { const open = openModule === module.id; return <div key={module.id} className="liquid-card overflow-hidden"><span className="liquid-blob blob-b" aria-hidden /><button type="button" onClick={() => setOpenModule(open ? null : module.id)} className="relative z-10 flex w-full items-center gap-4 p-5 text-right" aria-expanded={open}><span className="glass-tile text-sm font-black">{formatNumber(index + 1)}</span><span className="flex-1"><span className="block text-sm font-black text-navy">{module.title}</span><span className="mt-1 block text-xs text-navy/45">{formatNumber(module.lessons.length)} درس آموزشی</span></span><ChevronDown className={`size-5 text-navy/40 transition-transform ${open ? 'rotate-180' : ''}`} aria-hidden /></button>{open && <ul className="relative z-10 border-t border-navy/5 px-5 pb-4 pt-2">{module.lessons.map((lesson, lessonIndex) => <li key={lesson.id} className="flex items-center gap-3 border-b border-navy/5 py-3 last:border-0"><span className="flex size-8 items-center justify-center rounded-xl bg-brand-50 text-brand-600"><PlayCircle className="size-4" aria-hidden /></span><span className="flex-1 text-sm font-bold text-navy/75">{lesson.title}</span>{lesson.is_free && <Badge tone="green">رایگان</Badge>}<span className="text-xs text-navy/40">{lesson.duration_minutes ? formatDuration(lesson.duration_minutes) : formatNumber(lessonIndex + 1)}</span></li>)}</ul>}</div>; })}</div>
+                            <div className="mt-7 flex flex-col gap-4">{course.modules.map((module, index) => { const open = openModule === module.id; return <div key={module.id} className="liquid-card overflow-hidden"><span className="liquid-blob blob-b" aria-hidden /><button type="button" onClick={() => setOpenModule(open ? null : module.id)} className="relative z-10 flex w-full items-center gap-4 p-5 text-right" aria-expanded={open}><span className="glass-tile text-sm font-black">{formatNumber(index + 1)}</span><span className="flex-1"><span className="block text-sm font-black text-navy">{module.title}</span><span className="mt-1 block text-xs text-navy/45">{formatNumber(module.lessons.length)} درس آموزشی</span></span><ChevronDown className={`size-5 text-navy/40 transition-transform ${open ? 'rotate-180' : ''}`} aria-hidden /></button>{open && <ul className="relative z-10 border-t border-navy/5 px-5 pb-4 pt-2">{module.lessons.map((lesson, lessonIndex) => <li key={lesson.id} className="flex items-center gap-3 border-b border-navy/5 py-3 last:border-0"><span className="flex size-8 items-center justify-center rounded-xl bg-brand-50 text-brand-600"><PlayCircle className="size-4" aria-hidden /></span><span className="flex-1 text-sm font-bold text-navy/75">{lesson.is_free ? <Link href={`/dashboard/courses/${course.slug}/learn/${lesson.id}`} className="hover:text-brand-700">{lesson.title}</Link> : lesson.title}</span>{lesson.is_free && <Badge tone="green">رایگان</Badge>}<span className="text-xs text-navy/40">{lesson.duration_minutes ? formatDuration(lesson.duration_minutes) : formatNumber(lessonIndex + 1)}</span></li>)}</ul>}</div>; })}</div>
                         </section>}
 
                         {activeTab === 'instructor' && <section id="course-panel-instructor" role="tabpanel" className="course-tab-panel">

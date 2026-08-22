@@ -9,6 +9,7 @@ use App\Models\CoachingSession;
 use App\Models\CourseModule;
 use App\Models\Coupon;
 use App\Models\Category;
+use App\Models\Comment;
 use App\Models\Course;
 use App\Models\Lead;
 use App\Models\Lesson;
@@ -24,6 +25,9 @@ use App\Models\TeamMember;
 use App\Models\Testimonial;
 use App\Models\Ticket;
 use App\Models\User;
+use App\Services\Commerce\OrderFulfillment;
+use App\Services\Commerce\SessionCancellation;
+use App\Support\SafeStoragePath;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -345,6 +349,17 @@ class ContentController extends Controller
                 ['name' => 'assigned_to', 'label' => 'مسئول پیگیری', 'type' => 'user'],
             ],
         ],
+        'comments' => [
+            'model' => Comment::class,
+            'label' => 'نظرات بلاگ',
+            'singular' => 'نظر',
+            'search' => ['body'],
+            'fields' => [
+                ['name' => 'user_id', 'label' => 'کاربر', 'type' => 'user', 'required' => true],
+                ['name' => 'body', 'label' => 'متن نظر', 'type' => 'textarea', 'wide' => true, 'required' => true],
+                ['name' => 'is_approved', 'label' => 'نمایش در سایت', 'type' => 'boolean'],
+            ],
+        ],
         'orders' => [
             'model' => Order::class,
             'label' => 'سفارش‌ها و پرداخت‌ها',
@@ -352,7 +367,7 @@ class ContentController extends Controller
             'search' => ['order_number', 'status'],
             'fields' => [
                 ['name' => 'order_number', 'label' => 'شماره سفارش', 'type' => 'text', 'required' => true],
-                ['name' => 'status', 'label' => 'وضعیت', 'type' => 'select', 'options' => ['cart' => 'سبد خرید', 'pending' => 'در انتظار پرداخت', 'paid' => 'پرداخت موفق', 'failed' => 'ناموفق', 'cancelled' => 'لغوشده', 'refunded' => 'مرجوع‌شده']],
+                ['name' => 'status', 'label' => 'وضعیت', 'type' => 'select', 'options' => ['cart' => 'سبد خرید', 'pending' => 'در انتظار پرداخت', 'paid' => 'پرداخت موفق', 'failed' => 'ناموفق', 'cancelled' => 'لغوشده', 'refunded' => 'مرجوع‌شده', 'refund_pending' => 'در انتظار بازگشت وجه درگاه']],
                 ['name' => 'subtotal', 'label' => 'مبلغ اولیه', 'type' => 'number'],
                 ['name' => 'discount', 'label' => 'تخفیف', 'type' => 'number'],
                 ['name' => 'total', 'label' => 'مبلغ نهایی', 'type' => 'number'],
@@ -402,7 +417,7 @@ class ContentController extends Controller
             'items' => $items->through(fn (Model $item) => $this->presentItem($item, $fields)),
             'filters' => $filters,
             'filterFields' => $config['filters'] ?? [],
-            'canCreate' => $resource !== 'reviews' && $this->can($request, "create {$resource}"),
+            'canCreate' => ! in_array($resource, ['reviews', 'comments'], true) && $this->can($request, "create {$resource}"),
             'canUpdate' => $this->can($request, "update {$resource}"),
             'canDelete' => $this->can($request, "delete {$resource}"),
         ]);
@@ -465,9 +480,17 @@ class ContentController extends Controller
         $data = $this->validated($request, $resource, $config, $id);
         $data = $this->finalizeSeo($data, $resource, $item);
 
+        $previousStatus = in_array($resource, ['orders', 'coaching'], true) ? (string) $item->getAttribute('status') : null;
+
+        if ($resource === 'coaching' && ($data['status'] ?? null) === 'cancelled' && $previousStatus !== 'cancelled') {
+            app(SessionCancellation::class)->cancel($item, 'admin');
+            unset($data['status'], $data['cancelled_at'], $data['cancel_reason']);
+        }
+
         $item->update($this->withoutUploads($config, $data));
         $this->applyImages($request, $resource, $config, $item, $data);
         $this->applyFiles($request, $resource, $config, $item);
+        $this->syncOrderStatus($resource, $item->fresh(), $previousStatus);
 
         return redirect()->route('admin.content.index', $resource)->with('success', "{$config['singular']} به‌روزرسانی شد.");
     }
@@ -599,6 +622,14 @@ class ContentController extends Controller
             }
             if ($name === 'module_id') {
                 $rule = ['nullable', 'integer', 'exists:course_modules,id'];
+            }
+            if ($name === 'file_path') {
+                $rule[] = 'max:500';
+                $rule[] = function (string $attribute, mixed $value, \Closure $fail): void {
+                    if (filled($value) && SafeStoragePath::normalize((string) $value) === null) {
+                        $fail('مسیر فایل نامعتبر است.');
+                    }
+                };
             }
             if ($name === 'slug') {
                 $rule[] = 'max:255';
@@ -803,9 +834,9 @@ class ContentController extends Controller
             }
 
             $disk = Storage::disk('local');
-            $oldPath = $item->getAttribute($column);
-            if (filled($oldPath)) {
-                $disk->delete(ltrim((string) $oldPath, '/'));
+            $oldPath = SafeStoragePath::normalize((string) $item->getAttribute($column));
+            if ($oldPath) {
+                $disk->delete($oldPath);
             }
 
             $extension = strtolower($file->extension() ?: 'pdf');
@@ -827,13 +858,50 @@ class ContentController extends Controller
                 'download_file' => 'file_path',
                 default => null,
             };
-            if ($column && filled($item->getAttribute($column))) {
-                Storage::disk('local')->delete(ltrim((string) $item->getAttribute($column), '/'));
+            $oldPath = $column ? SafeStoragePath::normalize((string) $item->getAttribute($column)) : null;
+            if ($oldPath) {
+                Storage::disk('local')->delete($oldPath);
             }
         }
     }
 
     /** @param array<string, mixed> $config */
+    private function syncOrderStatus(string $resource, Model $item, ?string $previousStatus): void
+    {
+        if ($resource !== 'orders' || ! $item instanceof Order || $previousStatus === null) {
+            return;
+        }
+
+        $next = (string) $item->status;
+        if ($previousStatus === $next) {
+            return;
+        }
+
+        $fulfillment = app(OrderFulfillment::class);
+
+        if ($previousStatus !== 'paid' && $next === 'paid') {
+            if (! $item->paid_at) {
+                $item->update(['paid_at' => now(), 'reservation_expires_at' => null]);
+            }
+            $fulfillment->fulfill($item);
+        }
+
+        if ($previousStatus === 'pending' && in_array($next, ['cancelled', 'failed', 'refunded'], true)) {
+            $fulfillment->releaseReservations($item);
+            $item->update(['reservation_expires_at' => null]);
+        }
+
+        if ($previousStatus === 'paid' && in_array($next, ['refunded', 'refund_pending'], true)) {
+            app(\App\Services\Commerce\OrderRefund::class)->refund($item, 'admin');
+            foreach ($item->items()->where('purchasable_type', CoachingSession::class)->get() as $orderItem) {
+                $session = CoachingSession::query()->find($orderItem->purchasable_id);
+                if ($session && $session->status !== 'cancelled') {
+                    app(SessionCancellation::class)->cancel($session, 'admin_order_refund');
+                }
+            }
+        }
+    }
+
     private function deleteImageFiles(string $resource, array $config, int|string $id): void
     {
         foreach ($config['fields'] as $field) {

@@ -15,7 +15,7 @@ class CourseController extends Controller
 {
     public function index(Request $request): Response
     {
-        $courses = Course::query()
+        $courses = $this->scopedCourses($request)
             ->with(['instructor.user', 'category'])
             ->when($request->search, fn ($q, $search) => $q->where('title', 'like', "%{$search}%"))
             ->when($request->status === 'published', fn ($q) => $q->where('is_published', true))
@@ -44,6 +44,10 @@ class CourseController extends Controller
         $validated = $this->validated($request);
         unset($validated['thumbnail_file']);
         $validated['seo'] = $this->seoPayload($validated);
+        $user = $request->user();
+        if ($user && ! $user->hasAnyRole(['super-admin', 'admin']) && $user->hasRole('instructor') && empty($validated['instructor_id'])) {
+            $validated['instructor_id'] = $user->id;
+        }
 
         $course = Course::create($validated);
         $this->storeUploadedThumbnail($request, $course);
@@ -51,8 +55,10 @@ class CourseController extends Controller
         return redirect()->route('admin.courses.index')->with('success', 'دوره با موفقیت ایجاد شد.');
     }
 
-    public function edit(Course $course): Response
+    public function edit(Request $request, Course $course): Response
     {
+        $this->assertCanManage($request, $course);
+
         return Inertia::render('Admin/Courses/Form', [
             'course' => $course,
             'categories' => Category::where('type', 'course')->get(['id', 'name']),
@@ -62,6 +68,7 @@ class CourseController extends Controller
 
     public function update(Request $request, Course $course)
     {
+        $this->assertCanManage($request, $course);
         $validated = $this->validated($request);
         unset($validated['thumbnail_file']);
         $validated['seo'] = $this->seoPayload($validated, $course);
@@ -72,11 +79,31 @@ class CourseController extends Controller
         return redirect()->route('admin.courses.index')->with('success', 'دوره با موفقیت به‌روزرسانی شد.');
     }
 
-    public function destroy(Course $course)
+    public function destroy(Request $request, Course $course)
     {
+        $this->assertCanManage($request, $course);
         $course->delete();
 
         return back()->with('success', 'دوره حذف شد.');
+    }
+
+    private function scopedCourses(Request $request)
+    {
+        $query = Course::query();
+        $user = $request->user();
+        if ($user && ! $user->hasAnyRole(['super-admin', 'admin']) && $user->hasRole('instructor')) {
+            $query->where(function ($nested) use ($user) {
+                $nested->where('instructor_id', $user->id)
+                    ->orWhereHas('instructor', fn ($instructor) => $instructor->where('user_id', $user->id));
+            });
+        }
+
+        return $query;
+    }
+
+    private function assertCanManage(Request $request, Course $course): void
+    {
+        abort_unless($this->scopedCourses($request)->whereKey($course->id)->exists(), 403);
     }
 
     private function validated(Request $request): array

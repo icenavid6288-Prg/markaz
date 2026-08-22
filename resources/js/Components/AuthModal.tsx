@@ -2,9 +2,6 @@ import { Link, useForm } from '@inertiajs/react';
 import BrandLogo from '@/Components/BrandLogo';
 import {
     ArrowLeft,
-    Eye,
-    EyeOff,
-    KeyRound,
     Gift,
     LogIn,
     MessageSquareText,
@@ -36,15 +33,11 @@ export default function AuthModal({
 }) {
     const [mode, setMode] = useState<'login' | 'register'>(initialMode);
     const [step, setStep] = useState<'phone' | 'code'>('phone');
-    const [loginMethod, setLoginMethod] = useState<'password' | 'otp'>('password');
     const [resendSeconds, setResendSeconds] = useState(0);
-    const [showPassword, setShowPassword] = useState(false);
     const form = useForm({
         name: '',
         phone: sharedState?.phone ?? '',
         code: '',
-        password: '',
-        password_confirmation: '',
         referral_code: '',
         remember: false,
         modal: true,
@@ -79,7 +72,6 @@ export default function AuthModal({
         if (resendSeconds > 0 || form.processing || !form.data.phone) return;
 
         form.setData('code', '');
-        form.setData('password', '');
         form.post(isLogin ? route('login') : route('register'), {
             preserveScroll: true,
             preserveState: true,
@@ -98,7 +90,7 @@ export default function AuthModal({
                 preserveScroll: true,
                 preserveState: true,
                 onSuccess: () => {
-                    if (!isCodeStep && loginMethod === 'otp') {
+                    if (!isCodeStep) {
                         setStep('code');
                         setResendSeconds(60);
                     }
@@ -122,17 +114,8 @@ export default function AuthModal({
     const switchMode = (nextMode: 'login' | 'register') => {
         setMode(nextMode);
         setStep('phone');
-        setLoginMethod('password');
-        setShowPassword(false);
         form.clearErrors();
-        form.reset('name', 'phone', 'code', 'password', 'password_confirmation', 'referral_code');
-    };
-
-    const toggleLoginMethod = () => {
-        setLoginMethod((current) => (current === 'password' ? 'otp' : 'password'));
-        form.setData('password', '');
-        setShowPassword(false);
-        form.clearErrors('password');
+        form.reset('name', 'phone', 'code', 'referral_code');
     };
 
     const copyReferral = () => {
@@ -197,9 +180,7 @@ export default function AuthModal({
                         {isCodeStep
                             ? `کد شش‌رقمی ارسال‌شده به شماره ${form.data.phone} را وارد کنید.`
                             : isLogin
-                                ? loginMethod === 'password'
-                                    ? 'شماره موبایل و رمز عبور خود را وارد کنید.'
-                                    : 'فقط شماره موبایل خود را وارد کنید؛ کد ورود برایتان پیامک می‌شود.'
+                                ? 'فقط شماره موبایل خود را وارد کنید؛ کد ورود برایتان پیامک می‌شود.'
                                 : 'با ساخت حساب، دوره‌ها، کوچینگ و مسیر رشد اختصاصی شما یکجا در دسترس است.'}
                     </p>
 
@@ -256,25 +237,6 @@ export default function AuthModal({
                             </div>
                         </Field>
 
-                        {isLogin && !isCodeStep && loginMethod === 'password' && (
-                            <Field label="رمز عبور" id="password" error={form.errors.password}>
-                                <div className="relative">
-                                    <KeyRound className="input-icon" aria-hidden />
-                                    <input
-                                        id="password"
-                                        type={showPassword ? 'text' : 'password'}
-                                        dir="ltr"
-                                        value={form.data.password}
-                                        autoComplete="current-password"
-                                        placeholder="رمز عبور حساب شما"
-                                        onChange={(event) => form.setData('password', event.target.value)}
-                                        className="auth-modal-input pl-11"
-                                    />
-                                    <PasswordToggle show={showPassword} onClick={() => setShowPassword((value) => !value)} />
-                                </div>
-                            </Field>
-                        )}
-
                         {isCodeStep && (
                             <Field label={isLogin ? 'کد ورود پیامکی' : 'کد تأیید پیامکی'} id="code" error={form.errors.code}>
                                 <div className="relative">
@@ -316,61 +278,19 @@ export default function AuthModal({
                                         )}
                                     </div>
                                 </Field>
-                                <Field label="رمز عبور" id="password" error={form.errors.password}>
-                                    <div className="relative">
-                                        <KeyRound className="input-icon" aria-hidden />
-                                        <input
-                                            id="password"
-                                            type={showPassword ? 'text' : 'password'}
-                                            dir="ltr"
-                                            value={form.data.password}
-                                            autoComplete="new-password"
-                                            placeholder="حداقل ۸ کاراکتر"
-                                            onChange={(event) => form.setData('password', event.target.value)}
-                                            className="auth-modal-input pl-11"
-                                        />
-                                        <PasswordToggle show={showPassword} onClick={() => setShowPassword((value) => !value)} />
-                                    </div>
-                                </Field>
-                                <Field label="تکرار رمز عبور" id="password_confirmation" error={form.errors.password_confirmation}>
-                                    <div className="relative">
-                                        <KeyRound className="input-icon" aria-hidden />
-                                        <input
-                                            id="password_confirmation"
-                                            type={showPassword ? 'text' : 'password'}
-                                            dir="ltr"
-                                            value={form.data.password_confirmation}
-                                            autoComplete="new-password"
-                                            placeholder="تکرار رمز عبور"
-                                            onChange={(event) => form.setData('password_confirmation', event.target.value)}
-                                            className="auth-modal-input"
-                                        />
-                                    </div>
-                                </Field>
                             </>
                         )}
 
                         {isLogin && (
-                            <div className="flex items-center justify-between gap-3">
-                                <label className="flex cursor-pointer items-center gap-2 text-xs font-bold text-navy/60">
-                                    <input
-                                        type="checkbox"
-                                        checked={form.data.remember}
-                                        onChange={(event) => form.setData('remember', event.target.checked)}
-                                        className="size-4 rounded-md border-navy/20 text-brand-600 focus:ring-brand-500"
-                                    />
-                                    مرا به خاطر بسپار
-                                </label>
-                                {!isCodeStep && (
-                                    <Link
-                                        href={route('password.request')}
-                                        onClick={onClose}
-                                        className="text-xs font-black text-brand-700 hover:text-brand-800"
-                                    >
-                                        فراموشی رمز عبور؟
-                                    </Link>
-                                )}
-                            </div>
+                            <label className="flex cursor-pointer items-center gap-2 text-xs font-bold text-navy/60">
+                                <input
+                                    type="checkbox"
+                                    checked={form.data.remember}
+                                    onChange={(event) => form.setData('remember', event.target.checked)}
+                                    className="size-4 rounded-md border-navy/20 text-brand-600 focus:ring-brand-500"
+                                />
+                                مرا به خاطر بسپار
+                            </label>
                         )}
 
                         <button
@@ -378,19 +298,9 @@ export default function AuthModal({
                             disabled={form.processing}
                             className="mt-1 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-l from-brand-600 to-brand-500 px-6 py-3.5 text-sm font-black text-white shadow-glow transition-all hover:from-brand-700 hover:to-brand-600 active:scale-[0.98] disabled:opacity-60"
                         >
-                            {isLogin ? (isCodeStep ? <LogIn className="size-5" aria-hidden /> : loginMethod === 'password' ? <LogIn className="size-5" aria-hidden /> : <MessageSquareText className="size-5" aria-hidden />) : <Rocket className="size-5" aria-hidden />}
-                            {form.processing ? 'در حال بررسی...' : isCodeStep ? (isLogin ? 'ورود به پنل' : 'تأیید و ساخت حساب') : isLogin ? (loginMethod === 'password' ? 'ورود به حساب' : 'دریافت کد ورود') : 'شروع مسیر رشد'}
+                            {isLogin ? (isCodeStep ? <LogIn className="size-5" aria-hidden /> : <MessageSquareText className="size-5" aria-hidden />) : <Rocket className="size-5" aria-hidden />}
+                            {form.processing ? 'در حال بررسی...' : isCodeStep ? (isLogin ? 'ورود به پنل' : 'تأیید و ساخت حساب') : isLogin ? 'دریافت کد ورود' : 'شروع مسیر رشد'}
                         </button>
-
-                        {isLogin && !isCodeStep && (
-                            <button
-                                type="button"
-                                onClick={toggleLoginMethod}
-                                className="text-xs font-black text-brand-700 transition-colors hover:text-brand-800"
-                            >
-                                {loginMethod === 'password' ? 'رمز عبور را ندارید؟ ورود با کد پیامکی' : 'ورود با رمز عبور'}
-                            </button>
-                        )}
 
                         {isCodeStep && (
                             <div className="flex flex-col items-center justify-center gap-2 text-xs font-bold text-navy/45">

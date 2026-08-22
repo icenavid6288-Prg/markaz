@@ -24,8 +24,6 @@ class RegistrationTest extends TestCase
         $this->post('/register', [
             'name' => 'Test User',
             'phone' => '09121234567',
-            'password' => 'password',
-            'password_confirmation' => 'password',
         ])->assertRedirect(route('register', ['step' => 'code'], absolute: false));
 
         $this->assertGuest();
@@ -49,8 +47,6 @@ class RegistrationTest extends TestCase
         $this->post('/register', [
             'name' => 'Test User',
             'phone' => '09129876543',
-            'password' => 'password',
-            'password_confirmation' => 'password',
         ])->assertRedirect(route('register', ['step' => 'code'], absolute: false));
 
         $this->assertGuest();
@@ -62,8 +58,6 @@ class RegistrationTest extends TestCase
         $this->post('/register', [
             'name' => 'Test User',
             'phone' => '09129876544',
-            'password' => 'password',
-            'password_confirmation' => 'password',
         ]);
 
         $this->post('/register/verify', [
@@ -82,8 +76,6 @@ class RegistrationTest extends TestCase
         $this->from('/')->post('/register', [
             'name' => 'Production User',
             'phone' => '09126667788',
-            'password' => 'password',
-            'password_confirmation' => 'password',
             'modal' => true,
         ])->assertRedirect('/');
 
@@ -106,8 +98,6 @@ class RegistrationTest extends TestCase
             ->post('/register', [
                 'name' => 'Modal User',
                 'phone' => '09127778899',
-                'password' => 'password',
-                'password_confirmation' => 'password',
                 'modal' => true,
             ])
             ->assertRedirect('/')
@@ -168,8 +158,6 @@ class RegistrationTest extends TestCase
         $response = $this->post('/register', [
             'name' => 'Test User',
             'phone' => '02112345678',
-            'password' => 'password',
-            'password_confirmation' => 'password',
         ]);
 
         $response->assertSessionHasErrors('phone');
@@ -183,8 +171,6 @@ class RegistrationTest extends TestCase
         $response = $this->post('/register', [
             'name' => 'Test User',
             'phone' => $user->phone,
-            'password' => 'password',
-            'password_confirmation' => 'password',
         ]);
 
         $response->assertSessionHasErrors('phone');

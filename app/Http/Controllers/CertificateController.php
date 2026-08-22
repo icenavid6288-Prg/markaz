@@ -62,12 +62,17 @@ class CertificateController extends Controller
         abort_unless($isOwner || $canManage, 403);
 
         $path = $certificate->file_path;
-        if (! $path || ! Storage::disk('public')->exists($path)) {
-            $path = app(CertificatePdfService::class)->store($certificate);
-            $certificate->update(['file_path' => $path]);
+        $disk = Storage::disk('local');
+        if (! $path || ! $disk->exists($path)) {
+            if ($path && Storage::disk('public')->exists($path)) {
+                $disk = Storage::disk('public');
+            } else {
+                $path = app(CertificatePdfService::class)->store($certificate);
+                $certificate->update(['file_path' => $path]);
+            }
         }
 
-        return Storage::disk('public')->download($path, 'Certificate-'.$certificate->certificate_number.'.pdf');
+        return $disk->download($path, 'Certificate-'.$certificate->certificate_number.'.pdf');
     }
 
     /** @return array<string, mixed> */

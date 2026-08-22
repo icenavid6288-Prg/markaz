@@ -1,0 +1,41 @@
+<?php
+
+$vendorDir = dirname(__DIR__);
+$baseDir = dirname($vendorDir);
+
+return array(
+    '74d13ab46afaea94a39875ad473b26ec88049f39' => $vendorDir . '/guzzlehttp/guzzle/src/functions_include.php',
+    'e028c3a74fd9a388753064f4d4a0e2c33bcb13c6' => $vendorDir . '/inertiajs/inertia-laravel/./helpers.php',
+    '0dcf930b31db35bbc8369156eaf1f2317a2fa1e6' => $vendorDir . '/laravel/framework/src/Illuminate/Collections/functions.php',
+    'db37f7e25cab655eb6cedf5866237de638ecdab6' => $vendorDir . '/laravel/framework/src/Illuminate/Collections/helpers.php',
+    'd445e5bb49e30e4b3aa689f322d37e51d18b4582' => $vendorDir . '/laravel/framework/src/Illuminate/Events/functions.php',
+    '2fd658bf75ec08d16b0b6e1eb1533da6d31e2657' => $vendorDir . '/laravel/framework/src/Illuminate/Filesystem/functions.php',
+    'b12bc5a19d67e776088718ea4885df15c86308ed' => $vendorDir . '/laravel/framework/src/Illuminate/Foundation/helpers.php',
+    'c5838eb330f8fa364c23a3799ada1df4117e7ce4' => $vendorDir . '/laravel/framework/src/Illuminate/Log/functions.php',
+    '52097738bcc6fd13495833cee65de76dedffd7a7' => $vendorDir . '/laravel/framework/src/Illuminate/Reflection/helpers.php',
+    '70ffcf24765be4510ea302272438fa75608a6a17' => $vendorDir . '/laravel/framework/src/Illuminate/Support/functions.php',
+    '7ffc0af03fb25a08a3f5a9942d41716644afe2e6' => $vendorDir . '/laravel/framework/src/Illuminate/Support/helpers.php',
+    '90576656fe4646d903c16fc495a25dd2ff81b2a1' => $vendorDir . '/laravel/prompts/src/helpers.php',
+    '5c04f4027cc989fccf7f8f95e59eacec45e5fc08' => $vendorDir . '/mpdf/mpdf/src/functions.php',
+    '8869e2585f21863e37df8d365df70bf744eeb97b' => $vendorDir . '/myclabs/deep-copy/src/DeepCopy/deep_copy.php',
+    '6bd7fb0ea326ba5902362327a96f7a18857763b1' => $vendorDir . '/nunomaduro/termwind/src/Functions.php',
+    '666fd1c48fc3e61e1563785e6a893d7667200a44' => $vendorDir . '/psy/psysh/src/functions.php',
+    '3aeb7e3cd4d1704ab25e240d72d9523c8e1915d5' => $vendorDir . '/ralouphie/getallheaders/src/getallheaders.php',
+    '19bb9ac085744e1948063b506833132c91676a95' => $vendorDir . '/ramsey/uuid/src/functions.php',
+    'c14828d6568f0ffb8bcd1a116afd39ded38f482b' => $vendorDir . '/spatie/laravel-permission/src/helpers.php',
+    'a01559ff49ed11ff8ed4601ab09dead41681ccb5' => $vendorDir . '/symfony/clock/Resources/now.php',
+    'cd0be1d77c00cfa7b5d9ec84b98b3d4f087c92a3' => $vendorDir . '/symfony/deprecation-contracts/function.php',
+    '855485e1c673dd65ec3d6e48e61799cbd9149901' => $vendorDir . '/symfony/polyfill-ctype/bootstrap.php',
+    '4f9b14d4190de54a8e13ae6fe147e34076cfc98e' => $vendorDir . '/symfony/polyfill-intl-grapheme/bootstrap.php',
+    'a0b07fd1b37e8f34354ee9bf8171bb429e6254a3' => $vendorDir . '/symfony/polyfill-intl-idn/bootstrap.php',
+    '9f2948fcab477cf4219ef267c5c5a781ca5b4844' => $vendorDir . '/symfony/polyfill-intl-normalizer/bootstrap.php',
+    '26d0fff78f6a023c892645006c8558f98c0ac4b5' => $vendorDir . '/symfony/polyfill-mbstring/bootstrap.php',
+    'caa363dcd45927c267c0a79646ae29711d9f191b' => $vendorDir . '/symfony/polyfill-php80/bootstrap.php',
+    '05bbf9f3a2736b5319906fc4d3b3409cdca4b22c' => $vendorDir . '/symfony/polyfill-php83/bootstrap.php',
+    'cb10278342da9e2a66d26d873b87ebee71e6cf08' => $vendorDir . '/symfony/polyfill-php84/bootstrap.php',
+    '2b9ed853eb245fd7f113f03e6f5262b648dc3cc0' => $vendorDir . '/symfony/polyfill-php85/bootstrap.php',
+    '99f783e962ad3512b5bd1dba29159a381535c75d' => $vendorDir . '/symfony/polyfill-uuid/bootstrap.php',
+    '504180b2cac68b84234f97733d690e3965ae078a' => $vendorDir . '/symfony/string/Resources/functions.php',
+    'c7a9b3b6f721dd7dd31a0ab9f04d585ea72c9822' => $vendorDir . '/symfony/translation/Resources/functions.php',
+    'e2d8bfd9ea3488f4207fee408db32b45ab168f04' => $vendorDir . '/symfony/var-dumper/Resources/functions/dump.php',
+);

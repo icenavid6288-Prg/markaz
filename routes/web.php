@@ -10,6 +10,8 @@ use App\Http\Controllers\Admin\AuditLogController;
 use App\Http\Controllers\Admin\ContentController;
 use App\Http\Controllers\Admin\CourseController;
 use App\Http\Controllers\Admin\RolePermissionController;
+use App\Http\Controllers\Admin\MediaLibraryController;
+use App\Http\Controllers\Admin\OrderRefundController;
 use App\Http\Controllers\Admin\ReportExportController;
 use App\Http\Controllers\Admin\SettingsController;
 use App\Http\Controllers\Admin\SurveyController as AdminSurveyController;
@@ -64,6 +66,10 @@ use App\Http\Controllers\Public\ShopController;
 use App\Http\Controllers\Public\TeamController;
 use App\Http\Controllers\Public\InstructorController;
 use App\Http\Controllers\Public\CoachController;
+use App\Http\Controllers\Public\CmsPageController;
+use App\Http\Controllers\CommentController;
+use App\Http\Controllers\LearningSupportController;
+use App\Http\Controllers\WishlistController;
 use Illuminate\Support\Facades\Route;
 
 // Google Search Console prerequisites: the sitemap and robots.txt must be
@@ -92,19 +98,22 @@ Route::get('/shop', [ShopController::class, 'index'])->name('shop.index');
 Route::get('/shop/{product:slug}', [ShopController::class, 'show'])->name('shop.show');
 Route::get('/cart', [CartController::class, 'index'])->name('cart.index');
 Route::post('/cart/products/{product}', [CartController::class, 'store'])->name('cart.store');
-Route::patch('/cart/products/{product}', [CartController::class, 'update'])->name('cart.update');
-Route::delete('/cart/products/{product}', [CartController::class, 'destroy'])->name('cart.destroy');
+    Route::patch('/cart/products/{product}', [CartController::class, 'update'])->name('cart.update');
+    Route::delete('/cart/products/{product}', [CartController::class, 'destroy'])->name('cart.destroy');
+    Route::post('/cart/coupon', [CartController::class, 'applyCoupon'])->middleware('throttle:10,1')->name('cart.coupon.apply');
+    Route::delete('/cart/coupon', [CartController::class, 'removeCoupon'])->name('cart.coupon.remove');
 Route::get('/coaching', [CoachingController::class, 'index'])->name('coaching.index');
 Route::get('/about', [AboutController::class, 'index'])->name('about.index');
 Route::get('/team', [TeamController::class, 'index'])->name('team.index');
 Route::get('/instructors/{instructor}', [InstructorController::class, 'show'])->name('instructors.show');
 Route::get('/coaches/{coach}', [CoachController::class, 'show'])->name('coaches.show');
 Route::get('/contact', [ContactController::class, 'index'])->name('contact.index');
+Route::get('/p/{page:slug}', [CmsPageController::class, 'show'])->name('pages.show');
 
 // Private, unlisted surveys are shared directly from the admin panel.
 Route::get('/survey/{survey}/register', [SurveyController::class, 'register'])->name('survey.register');
 Route::post('/survey/{survey}/register', [SurveyController::class, 'storeRegistration'])->middleware('throttle:5,1')->name('survey.register.store');
-Route::post('/survey/{survey}/register/verify', [SurveyController::class, 'verifyRegistration'])->middleware('throttle:5,1')->name('survey.register.verify');
+    Route::post('/survey/{survey}/register/verify', [SurveyController::class, 'verifyRegistration'])->middleware('throttle:5,1')->name('survey.register.verify');
 Route::post('/survey/{survey}/answer', [SurveyController::class, 'answer'])->middleware('throttle:30,1')->name('survey.answer');
 Route::get('/survey/{survey}', [SurveyController::class, 'show'])->name('survey.show');
 
@@ -126,6 +135,12 @@ Route::middleware('auth')->group(function () {
     Route::post('/courses/{course:slug}/checkout', [CheckoutController::class, 'store'])->name('courses.checkout');
     Route::post('/courses/{course:slug}/reviews', [ReviewController::class, 'storeCourse'])->name('courses.reviews.store');
     Route::post('/products/{product:slug}/reviews', [ReviewController::class, 'storeProduct'])->name('products.reviews.store');
+    Route::post('/blog/{post:slug}/comments', [CommentController::class, 'store'])->middleware('throttle:8,1')->name('blog.comments.store');
+    Route::post('/wishlist', [WishlistController::class, 'toggle'])->name('wishlist.toggle');
+    Route::get('/dashboard/wishlist', [WishlistController::class, 'index'])->name('dashboard.wishlist');
+    Route::post('/dashboard/courses/{course:slug}/lessons/{lesson}/notes', [LearningSupportController::class, 'storeNote'])->name('learning.notes.store');
+    Route::delete('/dashboard/courses/{course:slug}/lessons/{lesson}/notes', [LearningSupportController::class, 'destroyNote'])->name('learning.notes.destroy');
+    Route::post('/dashboard/courses/{course:slug}/lessons/{lesson}/bookmark', [LearningSupportController::class, 'toggleBookmark'])->name('learning.bookmark.toggle');
     Route::get('/cart/checkout', [CartController::class, 'checkout'])->name('cart.checkout');
     Route::get('/products/{product}/preview', ProductPreviewController::class)->name('products.preview');
     Route::get('/products/{product}/download', ProductDownloadController::class)->name('products.download');
@@ -134,6 +149,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/dashboard/courses/{course:slug}/lessons/{lesson}/quiz/start', [QuizController::class, 'start'])->name('learning.quiz.start');
     Route::post('/dashboard/courses/{course:slug}/lessons/{lesson}/quiz/attempts/{attempt}', [QuizController::class, 'submit'])->name('learning.quiz.submit');
     Route::post('/dashboard/courses/{course:slug}/lessons/{lesson}/assignment/submit', [AssignmentController::class, 'submit'])->name('learning.assignment.submit');
+    Route::get('/dashboard/assignments/submissions/{submission}/attachment', \App\Http\Controllers\AssignmentDownloadController::class)->name('learning.assignment.download');
     Route::post('/notifications/subscriptions', [NotificationSubscriptionController::class, 'store'])->name('notifications.subscriptions.store');
     Route::delete('/notifications/subscriptions', [NotificationSubscriptionController::class, 'destroy'])->name('notifications.subscriptions.destroy');
     Route::post('/checkout/{order:order_number}/pay', [CheckoutController::class, 'pay'])->name('checkout.pay');
@@ -153,6 +169,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/dashboard/assignments', [UserDashboardController::class, 'assignments'])->name('dashboard.assignments');
     Route::get('/dashboard/goals', [UserDashboardController::class, 'goals'])->name('dashboard.goals');
     Route::get('/dashboard/sessions', [UserDashboardController::class, 'sessions'])->name('dashboard.sessions');
+    Route::post('/dashboard/sessions/{session}/cancel', [CoachingBookingController::class, 'cancel'])->name('dashboard.sessions.cancel');
     Route::post('/coaching/book', [CoachingBookingController::class, 'store'])->name('coaching.book');
     Route::get('/dashboard/orders', [UserDashboardController::class, 'orders'])->name('dashboard.orders');
     Route::get('/dashboard/library', [UserDashboardController::class, 'library'])->name('dashboard.library');
@@ -168,14 +185,22 @@ Route::middleware('auth')->group(function () {
 
     Route::middleware('role:instructor')->prefix('panel/instructor')->name('panel.instructor.')->group(function () {
         Route::get('/', [InstructorDashboardController::class, 'index'])->name('dashboard');
+        Route::post('/submissions/{submission}/grade', [InstructorDashboardController::class, 'grade'])->name('submissions.grade');
     });
 
     Route::middleware('role:coach')->prefix('panel/coach')->name('panel.coach.')->group(function () {
         Route::get('/', [CoachDashboardController::class, 'index'])->name('dashboard');
+        Route::patch('/sessions/{session}', [CoachDashboardController::class, 'updateSession'])->name('sessions.update');
+        Route::post('/goals', [CoachDashboardController::class, 'storeGoal'])->name('goals.store');
+        Route::patch('/goals/{goal}', [CoachDashboardController::class, 'updateGoal'])->name('goals.update');
+        Route::post('/tasks', [CoachDashboardController::class, 'storeTask'])->name('tasks.store');
+        Route::post('/availability', [CoachDashboardController::class, 'storeAvailability'])->name('availability.store');
+        Route::delete('/availability/{slot}', [CoachDashboardController::class, 'destroyAvailability'])->name('availability.destroy');
     });
 
     Route::middleware('role:parent')->prefix('panel/parent')->name('panel.parent.')->group(function () {
         Route::get('/', [ParentDashboardController::class, 'index'])->name('dashboard');
+        Route::post('/children', [ParentDashboardController::class, 'linkChild'])->name('children.link');
         Route::get('/children/{student}', [ParentDashboardController::class, 'show'])->name('children.show');
     });
 
@@ -187,6 +212,7 @@ Route::middleware('auth')->group(function () {
 Route::middleware('guest')->group(function () {
     Route::get('/admin/login', [AuthenticatedSessionController::class, 'adminCreate'])->name('admin.login');
     Route::post('/admin/login', [AuthenticatedSessionController::class, 'adminStore'])->name('admin.login.store');
+    Route::post('/admin/login/verify', [AuthenticatedSessionController::class, 'adminVerify'])->name('admin.login.verify.store');
 });
 
 Route::prefix('admin')
@@ -197,7 +223,23 @@ Route::prefix('admin')
 
         Route::middleware('permission:view reports|manage all')->group(function () {
             Route::get('/audit-logs', [AuditLogController::class, 'index'])->name('audit-logs.index');
+            Route::get('/reports', [ReportExportController::class, 'index'])->name('reports.index');
+            Route::get('/reports/print', [ReportExportController::class, 'print'])->name('reports.print');
             Route::get('/reports/orders.csv', [ReportExportController::class, 'orders'])->name('reports.orders.export');
+            Route::get('/reports/payments.csv', [ReportExportController::class, 'payments'])->name('reports.payments.export');
+            Route::get('/reports/enrollments.csv', [ReportExportController::class, 'enrollments'])->name('reports.enrollments.export');
+            Route::get('/reports/sessions.csv', [ReportExportController::class, 'sessions'])->name('reports.sessions.export');
+            Route::get('/reports/users.csv', [ReportExportController::class, 'users'])->name('reports.users.export');
+            Route::post('/orders/{order}/refund', [OrderRefundController::class, 'store'])
+                ->middleware('permission:update orders|manage all')
+                ->name('orders.refund');
+        });
+
+        Route::middleware('permission:view media|manage all')->prefix('media')->name('media.')->group(function () {
+            Route::get('/', [MediaLibraryController::class, 'index'])->name('index');
+            Route::post('/', [MediaLibraryController::class, 'store'])->middleware('permission:create media|manage all')->name('store');
+            Route::post('/{media}/replace', [MediaLibraryController::class, 'replace'])->middleware('permission:update media|manage all')->name('replace');
+            Route::delete('/{media}', [MediaLibraryController::class, 'destroy'])->middleware('permission:delete media|update media|manage all')->name('destroy');
         });
 
         Route::middleware('permission:view roles|view permissions|manage all')->group(function () {

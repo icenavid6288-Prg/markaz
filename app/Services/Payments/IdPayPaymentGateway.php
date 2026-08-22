@@ -3,6 +3,7 @@
 namespace App\Services\Payments;
 
 use App\Models\Order;
+use App\Models\Payment;
 use App\Models\Setting;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
@@ -90,6 +91,15 @@ class IdPayPaymentGateway implements PaymentGateway
             'reference_id' => (string) $response->json('payment.track_id', ''),
             'transaction_id' => $id,
             'message' => $verified ? null : 'تأیید پرداخت آیدی‌پی ناموفق بود.',
+        ];
+    }
+
+    public function refund(Payment $payment, string $reason = 'refund'): array
+    {
+        return [
+            'ok' => true,
+            'channel' => 'manual',
+            'message' => 'آیدی‌پی وب‌سرویس عمومی بازگشت وجه ندارد. سفارش در سیستم مسترد شد؛ مبلغ را از پنل آیدی‌پی برگردانید.',
         ];
     }
 

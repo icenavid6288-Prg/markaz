@@ -1,7 +1,6 @@
 import { Head, Link, usePage } from '@inertiajs/react';
 import { ArrowLeft, CheckCircle2, LockKeyhole, ShieldCheck, Smartphone, UserRound } from 'lucide-react';
 import type { ReactNode } from 'react';
-import UpdatePasswordForm from './Partials/UpdatePasswordForm';
 import UpdateProfileInformationForm from './Partials/UpdateProfileInformationForm';
 import DeleteUserForm from './Partials/DeleteUserForm';
 import UserDashboardLayout from '@/Layouts/UserDashboardLayout';
@@ -44,11 +43,6 @@ export default function Edit({ mustVerifyEmail, status }: PageProps<{ mustVerify
                         </div>
                         <div className="mt-6 rounded-2xl bg-brand-50 p-4 text-xs leading-6 text-brand-900 dark:bg-brand-950/40 dark:text-brand-100">برای امنیت بیشتر، شماره موبایل خود را در اختیار دیگران قرار ندهید. تغییر شماره نیازمند تأیید اعتبار در مراحل بعدی است.</div>
                     </aside>
-                </section>
-
-                <section className="profile-surface rounded-3xl p-6 md:p-8">
-                    <div className="mb-6 flex items-start gap-3"><span className="profile-icon"><LockKeyhole className="size-5" /></span><div><h2 className="text-lg font-black text-navy">امنیت حساب</h2><p className="mt-1 text-xs leading-6 text-navy/50">رمز عبور قدیمی فقط برای اقدامات حساس مانند حذف حساب استفاده می‌شود.</p></div></div>
-                    <UpdatePasswordForm />
                 </section>
 
                 <section className="profile-danger rounded-3xl p-6 md:p-8">

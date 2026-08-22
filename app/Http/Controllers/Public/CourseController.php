@@ -203,6 +203,13 @@ class CourseController extends Controller
                 'body' => $myReview->body,
                 'is_approved' => (bool) $myReview->is_approved,
             ] : null,
+            'wishlisted' => $request->user()
+                ? \App\Models\Wishlist::query()
+                    ->where('user_id', $request->user()->id)
+                    ->where('wishlistable_type', Course::class)
+                    ->where('wishlistable_id', $course->id)
+                    ->exists()
+                : false,
             'can_review' => $canReview,
             'enrollment' => $enrollment ? [
                 'is_enrolled' => true,

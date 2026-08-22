@@ -15,7 +15,7 @@ class CertificatePdfService
     public function store(Certificate $certificate): string
     {
         $path = 'certificates/'.$certificate->certificate_number.'.pdf';
-        Storage::disk('public')->put($path, $this->generate($certificate));
+        Storage::disk('local')->put($path, $this->generate($certificate));
 
         return $path;
     }

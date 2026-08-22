@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Auth\AdminLoginRequest;
 use App\Models\PhoneLoginToken;
 use App\Models\User;
 use App\Services\Sms\SmsSender;
@@ -11,8 +10,8 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
-use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
@@ -43,22 +42,164 @@ class AuthenticatedSessionController extends Controller
     }
 
     /**
-     * Display the password-based administrator login.
+     * Display the administrator OTP login (phone or code step).
      */
-    public function adminCreate(): Response
+    public function adminCreate(Request $request): Response
     {
+        if ($request->boolean('fresh')) {
+            $request->session()->forget(['admin_login_phone', 'admin_login_dev_code']);
+        }
+
+        $phone = $request->session()->get('admin_login_phone');
+        $showCodeStep = $request->query('step') === 'code' && filled($phone);
+
         return Inertia::render('Auth/AdminLogin', [
             'status' => session('status'),
+            'step' => $showCodeStep ? 'code' : 'phone',
+            'phone' => $showCodeStep ? $phone : '',
+            'dev_code' => $showCodeStep && app()->environment(['local', 'testing'])
+                ? $request->session()->get('admin_login_dev_code')
+                : null,
         ]);
     }
 
     /**
-     * Authenticate an administrator without an SMS code.
+     * Send a one-time SMS code to an administrator. Passwords are never accepted.
      */
-    public function adminStore(AdminLoginRequest $request): RedirectResponse
+    public function adminStore(Request $request, SmsSender $sms): RedirectResponse
     {
-        $request->authenticate();
+        $request->validate([
+            'phone' => ['required', 'string', 'regex:/^09\d{9}$/'],
+        ]);
+
+        $phone = $request->string('phone')->toString();
+        $requestKey = 'admin-login-code-request:'.$phone;
+        $ipKey = 'admin-login-code-request-ip:'.$request->ip();
+
+        if (RateLimiter::tooManyAttempts($requestKey, 3) || RateLimiter::tooManyAttempts($ipKey, 30)) {
+            $seconds = max(RateLimiter::availableIn($requestKey), RateLimiter::availableIn($ipKey));
+
+            return back()->withErrors([
+                'phone' => 'درخواست‌های زیادی ثبت کرده‌اید. لطفاً '.ceil($seconds / 60).' دقیقه دیگر تلاش کنید.',
+            ])->withInput();
+        }
+
+        RateLimiter::hit($requestKey, 300);
+        RateLimiter::hit($ipKey, 300);
+
+        $user = User::query()->where('phone', $phone)->first();
+
+        if (! $user || ! $user->canAccessAdminPanel()) {
+            $request->session()->forget(['admin_login_phone', 'admin_login_dev_code']);
+            Log::warning('Admin OTP login rejected', [
+                'phone_hash' => hash('sha256', $phone),
+                'ip' => $request->ip(),
+            ]);
+
+            return back()->withErrors([
+                'phone' => 'امکان ورود به پنل با این شماره وجود ندارد.',
+            ])->withInput();
+        }
+
+        $code = (string) random_int(100000, 999999);
+
+        PhoneLoginToken::updateOrCreate(
+            ['phone' => $phone],
+            [
+                'token' => Hash::make($code),
+                'created_at' => now(),
+            ]
+        );
+
+        try {
+            $sms->sendOtp($phone, $code);
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return back()->withErrors([
+                'phone' => 'ارسال کد ورود ناموفق بود. لطفاً کمی بعد دوباره تلاش کنید.',
+            ])->withInput();
+        }
+
+        $request->session()->put('admin_login_phone', $phone);
+        if (app()->environment(['local', 'testing'])) {
+            $request->session()->flash('admin_login_dev_code', $code);
+        }
+
+        return redirect()->route('admin.login', ['step' => 'code'])
+            ->with('status', 'کد ورود به شماره شما پیامک شد.');
+    }
+
+    /**
+     * Verify the administrator SMS code and open the admin panel.
+     *
+     * @throws ValidationException
+     */
+    public function adminVerify(Request $request): RedirectResponse
+    {
+        $request->validate([
+            'phone' => ['required', 'string', 'regex:/^09\d{9}$/'],
+            'code' => ['required', 'string', 'size:6'],
+            'remember' => ['sometimes', 'boolean'],
+        ]);
+
+        $phone = $request->string('phone')->toString();
+        $sessionPhone = $request->session()->get('admin_login_phone');
+
+        if (! $sessionPhone || ! hash_equals($sessionPhone, $phone)) {
+            throw ValidationException::withMessages([
+                'phone' => 'نشست ورود منقضی شده است. دوباره شماره موبایل خود را وارد کنید.',
+            ]);
+        }
+
+        $verifyKey = 'admin-login-code-verify:'.$phone;
+        $verifyIpKey = 'admin-login-code-verify-ip:'.$request->ip();
+
+        if (RateLimiter::tooManyAttempts($verifyKey, 5) || RateLimiter::tooManyAttempts($verifyIpKey, 50)) {
+            $seconds = max(RateLimiter::availableIn($verifyKey), RateLimiter::availableIn($verifyIpKey));
+
+            throw ValidationException::withMessages([
+                'code' => 'تعداد تلاش‌ها بیش از حد مجاز است. لطفاً '.ceil($seconds / 60).' دقیقه دیگر کد جدید بگیرید.',
+            ]);
+        }
+
+        $loginToken = PhoneLoginToken::where('phone', $phone)->first();
+
+        if (! $loginToken || $loginToken->created_at->addMinutes(5)->isPast()) {
+            $loginToken?->delete();
+
+            throw ValidationException::withMessages([
+                'code' => 'کد ورود منقضی شده است. کد جدید بگیرید.',
+            ]);
+        }
+
+        if (! Hash::check($request->string('code')->toString(), $loginToken->token)) {
+            RateLimiter::hit($verifyKey, 300);
+            RateLimiter::hit($verifyIpKey, 300);
+
+            throw ValidationException::withMessages([
+                'code' => 'کد ورود صحیح نیست.',
+            ]);
+        }
+
+        $user = User::query()->where('phone', $phone)->first();
+
+        if (! $user || ! $user->canAccessAdminPanel()) {
+            throw ValidationException::withMessages([
+                'phone' => 'امکان ورود به پنل با این شماره وجود ندارد.',
+            ]);
+        }
+
+        RateLimiter::clear($verifyKey);
+        RateLimiter::clear($verifyIpKey);
+        $loginToken->delete();
+        $request->session()->forget(['admin_login_phone', 'admin_login_dev_code']);
         $request->session()->regenerate();
+        Auth::login($user, $request->boolean('remember'));
+        Log::info('Admin OTP login succeeded', [
+            'user_id' => $user->getKey(),
+            'ip' => $request->ip(),
+        ]);
 
         return redirect()->intended(route('admin.dashboard', absolute: false));
     }
@@ -82,18 +223,10 @@ class AuthenticatedSessionController extends Controller
     }
 
     /**
-     * Authenticate with phone + password, or send a one-time login code
-     * to the submitted phone number when no password is provided.
+     * Send a one-time SMS login code. Public login never accepts a password.
      */
     public function store(Request $request, SmsSender $sms): RedirectResponse
     {
-        if ($request->filled('password')) {
-            $this->authenticateWithPassword($request);
-            $request->session()->regenerate();
-
-            return redirect()->intended(route('dashboard', absolute: false));
-        }
-
         $request->validate([
             'phone' => ['required', 'string', 'regex:/^09\d{9}$/'],
         ]);
@@ -271,57 +404,12 @@ class AuthenticatedSessionController extends Controller
     }
 
     /**
-     * Authenticate any active user with a phone number and password.
-     *
-     * @throws ValidationException
-     */
-    private function authenticateWithPassword(Request $request): void
-    {
-        $request->validate([
-            'phone' => ['required', 'string', 'regex:/^09\d{9}$/'],
-            'password' => ['required', 'string'],
-            'remember' => ['sometimes', 'boolean'],
-        ]);
-
-        $phone = $request->string('phone')->toString();
-        $phoneKey = 'password-login:'.Str::lower($phone).'|'.$request->ip();
-        $ipKey = 'password-login-ip:'.$request->ip();
-
-        if (RateLimiter::tooManyAttempts($phoneKey, 5) || RateLimiter::tooManyAttempts($ipKey, 30)) {
-            $seconds = max(RateLimiter::availableIn($phoneKey), RateLimiter::availableIn($ipKey));
-
-            throw ValidationException::withMessages([
-                'phone' => 'تعداد تلاش‌های ناموفق بیش از حد مجاز است. لطفاً '.ceil($seconds / 60).' دقیقه دیگر تلاش کنید.',
-            ]);
-        }
-
-        $user = User::query()
-            ->where('phone', $phone)
-            ->where('is_active', true)
-            ->first();
-
-        if (! $user || ! Hash::check($request->string('password')->toString(), (string) $user->password)) {
-            RateLimiter::hit($phoneKey, 300);
-            RateLimiter::hit($ipKey, 300);
-
-            throw ValidationException::withMessages([
-                'phone' => 'شماره موبایل یا رمز عبور صحیح نیست.',
-            ]);
-        }
-
-        RateLimiter::clear($phoneKey);
-        RateLimiter::clear($ipKey);
-        Auth::login($user, $request->boolean('remember'));
-    }
-
-    /**
      * @param array<string, mixed> $extra
      * @return array<string, mixed>
      */
     private function loginProps(array $extra = []): array
     {
         return [
-            'canResetPassword' => Route::has('password.request'),
             'status' => session('status'),
             ...$extra,
         ];

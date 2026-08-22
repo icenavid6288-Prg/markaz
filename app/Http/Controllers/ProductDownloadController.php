@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Product;
+use App\Support\SafeStoragePath;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -27,9 +28,11 @@ class ProductDownloadController extends Controller
 
         abort_unless($hasPurchased, 403);
 
-        $path = ltrim((string) $product->file_path, '/');
+        $path = SafeStoragePath::normalize($product->file_path);
+        abort_unless($path, 404);
         if (Str::startsWith($path, 'storage/')) {
-            $path = Str::after($path, 'storage/');
+            $path = SafeStoragePath::normalize(Str::after($path, 'storage/'));
+            abort_unless($path, 404);
         }
 
         // Digital files belong on the private disk. Legacy public files can be

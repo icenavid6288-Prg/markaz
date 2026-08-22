@@ -23,14 +23,23 @@ class QuizController extends Controller
     {
         $quiz = $this->quizFor($request, $course, $lesson);
 
-        QuizAttempt::create([
-            'user_id' => $request->user()->id,
-            'quiz_id' => $quiz->id,
-            'score' => 0,
-            'answers' => [],
-            'passed' => false,
-            'started_at' => now(),
-        ]);
+        $existing = QuizAttempt::query()
+            ->where('user_id', $request->user()->id)
+            ->where('quiz_id', $quiz->id)
+            ->whereNull('submitted_at')
+            ->latest('id')
+            ->first();
+
+        if (! $existing) {
+            QuizAttempt::create([
+                'user_id' => $request->user()->id,
+                'quiz_id' => $quiz->id,
+                'score' => 0,
+                'answers' => [],
+                'passed' => false,
+                'started_at' => now(),
+            ]);
+        }
 
         return back();
     }
@@ -40,6 +49,17 @@ class QuizController extends Controller
         $quiz = $this->quizFor($request, $course, $lesson);
         abort_unless($attempt->quiz_id === $quiz->id && $attempt->user_id === $request->user()->id, 403);
         abort_if($attempt->submitted_at !== null, 422, 'این تلاش قبلاً ثبت شده است.');
+
+        if ($quiz->time_limit_minutes && $attempt->started_at?->addMinutes((int) $quiz->time_limit_minutes)->isPast()) {
+            $attempt->update([
+                'answers' => [],
+                'score' => 0,
+                'passed' => false,
+                'submitted_at' => now(),
+            ]);
+
+            return back()->with('error', 'زمان آزمون به پایان رسیده است.');
+        }
 
         $validated = $request->validate([
             'answers' => ['required', 'array'],

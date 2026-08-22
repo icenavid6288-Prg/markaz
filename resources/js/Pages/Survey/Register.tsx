@@ -99,12 +99,16 @@ export default function SurveyRegister({
                     )}
                     <form onSubmit={submit} className="flex flex-col gap-5">
                         {isCodeStep ? (
-                            <Field label="کد تأیید پیامکی" error={form.errors.code}>
-                                <div className="relative">
-                                    <Ticket className="pointer-events-none absolute right-4 top-1/2 size-4 -translate-y-1/2 text-navy/30" />
-                                    <input autoFocus dir="ltr" inputMode="numeric" maxLength={6} value={form.data.code} onChange={(e) => form.setData('code', e.target.value.replace(/\D/g, ''))} className={`${input} text-center tracking-[0.45em]`} placeholder="••••••" />
-                                </div>
-                            </Field>
+                            <>
+                                <input type="hidden" name="phone" value={form.data.phone} />
+                                <Field label="کد تأیید پیامکی" error={form.errors.code}>
+                                    <div className="relative">
+                                        <Ticket className="pointer-events-none absolute right-4 top-1/2 size-4 -translate-y-1/2 text-navy/30" />
+                                        <input autoFocus dir="ltr" inputMode="numeric" maxLength={6} value={form.data.code} onChange={(e) => form.setData('code', e.target.value.replace(/\D/g, ''))} className={`${input} text-center tracking-[0.45em]`} placeholder="••••••" />
+                                    </div>
+                                </Field>
+                                {form.errors.phone && <p className="text-xs font-bold text-red-600">{form.errors.phone}</p>}
+                            </>
                         ) : (
                             <>
                                 <Field label="نام و نام خانوادگی" error={form.errors.name}>

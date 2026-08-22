@@ -3,6 +3,7 @@
 namespace App\Services\Payments;
 
 use App\Models\Order;
+use App\Models\Payment;
 use App\Models\Setting;
 use Illuminate\Http\Request;
 use RuntimeException;
@@ -30,6 +31,11 @@ class ConfiguredPaymentGateway implements PaymentGateway
     public function checkConnection(): array
     {
         return $this->driver()->checkConnection();
+    }
+
+    public function refund(Payment $payment, string $reason = 'refund'): array
+    {
+        return $this->for((string) ($payment->gateway ?: $this->driverName()))->refund($payment, $reason);
     }
 
     public function driverName(): string

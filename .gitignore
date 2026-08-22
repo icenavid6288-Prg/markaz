@@ -18,14 +18,13 @@ composer.phar
 /.zed
 /auth.json
 /node_modules
-/public/build
 /public/hot
 /public/storage
 /storage/*.key
 /storage/pail
 /storage/inertia-devtools
 /.freebuff
-/vendor
+# vendor و public/build داخل مخزن هستند تا هاست اشتراکی بدون composer/npm نصب شود.
 Homestead.json
 Homestead.yaml
 Thumbs.db
@@ -39,3 +38,6 @@ Thumbs.db
 # Desktop app
 /desktop/node_modules
 /desktop/release
+
+/public/images/surveys/*
+!/public/images/surveys/.gitkeep

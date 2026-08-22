@@ -22,7 +22,7 @@ class AuthenticationTest extends TestCase
         $response->assertStatus(200);
     }
 
-    public function test_user_can_login_with_phone_and_password(): void
+    public function test_password_cannot_log_the_user_in(): void
     {
         $user = User::factory()->create(['password' => Hash::make('secret-password')]);
 
@@ -32,26 +32,12 @@ class AuthenticationTest extends TestCase
             'remember' => true,
         ]);
 
-        $this->assertAuthenticatedAs($user);
-        $response->assertRedirect(route('dashboard', absolute: false));
-        $this->assertDatabaseCount('phone_login_tokens', 0);
-    }
-
-    public function test_login_with_wrong_password_is_rejected(): void
-    {
-        $user = User::factory()->create(['password' => Hash::make('secret-password')]);
-
-        $response = $this->post('/login', [
-            'phone' => $user->phone,
-            'password' => 'wrong-password',
-        ]);
-
-        $response->assertSessionHasErrors('phone');
         $this->assertGuest();
-        $this->assertDatabaseCount('phone_login_tokens', 0);
+        $response->assertRedirect(route('login', ['step' => 'code'], absolute: false));
+        $this->assertDatabaseHas('phone_login_tokens', ['phone' => $user->phone]);
     }
 
-    public function test_inactive_user_cannot_login_with_password(): void
+    public function test_inactive_user_cannot_request_a_login_code(): void
     {
         $user = User::factory()->create([
             'password' => Hash::make('secret-password'),
@@ -60,44 +46,10 @@ class AuthenticationTest extends TestCase
 
         $this->post('/login', [
             'phone' => $user->phone,
-            'password' => 'secret-password',
-        ])->assertSessionHasErrors('phone');
+        ])->assertRedirect(route('register', ['phone' => $user->phone], absolute: false));
 
         $this->assertGuest();
-    }
-
-    public function test_password_login_attempts_are_rate_limited(): void
-    {
-        $user = User::factory()->create(['password' => Hash::make('secret-password')]);
-
-        for ($i = 0; $i < 5; $i++) {
-            $this->post('/login', [
-                'phone' => $user->phone,
-                'password' => 'wrong-password',
-            ]);
-        }
-
-        $response = $this->post('/login', [
-            'phone' => $user->phone,
-            'password' => 'secret-password',
-        ]);
-
-        $response->assertSessionHasErrors('phone');
-        $this->assertGuest();
-    }
-
-    public function test_login_with_empty_password_still_sends_an_sms_code(): void
-    {
-        $user = User::factory()->create();
-
-        $response = $this->post('/login', [
-            'phone' => $user->phone,
-            'password' => '',
-        ]);
-
-        $response->assertRedirect(route('login', ['step' => 'code'], absolute: false));
-        $this->assertGuest();
-        $this->assertDatabaseHas('phone_login_tokens', ['phone' => $user->phone]);
+        $this->assertDatabaseCount('phone_login_tokens', 0);
     }
 
     public function test_login_request_sends_a_code_and_opens_the_verification_step(): void

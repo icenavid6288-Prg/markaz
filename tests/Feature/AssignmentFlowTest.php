@@ -76,17 +76,20 @@ class AssignmentFlowTest extends TestCase
 
     public function test_student_can_attach_a_file(): void
     {
-        Storage::fake('public');
+        Storage::fake('local');
         ['user' => $user, 'course' => $course, 'lesson' => $lesson, 'assignment' => $assignment] = $this->makeAssignmentCourse();
 
         $this->actingAs($user)->post(route('learning.assignment.submit', ['course' => $course->slug, 'lesson' => $lesson->id]), [
             'content' => 'پاسخ در فایل پیوست است.',
-            'attachment' => UploadedFile::fake()->create('map.pdf', 100),
+            'attachment' => UploadedFile::fake()->create('map.pdf', 100, 'application/pdf'),
         ])->assertRedirect();
 
         $submission = Submission::where('assignment_id', $assignment->id)->where('user_id', $user->id)->firstOrFail();
         $this->assertNotNull($submission->attachment);
-        Storage::disk('public')->assertExists($submission->attachment);
+        Storage::disk('local')->assertExists($submission->attachment);
+
+        $this->actingAs($user)->get(route('learning.assignment.download', $submission))->assertOk();
+        $this->actingAs(User::factory()->create())->get(route('learning.assignment.download', $submission))->assertForbidden();
     }
 
     public function test_submission_requires_content_or_file(): void

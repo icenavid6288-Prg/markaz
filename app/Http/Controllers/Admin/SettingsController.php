@@ -30,7 +30,7 @@ class SettingsController extends Controller
     private const SECRET_KEYS = [
         'sms_kavenegar_api_key', 'sms_ir_api_key', 'sms_melipayamak_username', 'sms_melipayamak_password', 'sms_melipayamak_apikey',
         'sms_backup_kavenegar_api_key', 'sms_backup_smsir_api_key', 'sms_backup_melipayamak_username', 'sms_backup_melipayamak_password', 'sms_backup_melipayamak_apikey',
-        'payment_zarinpal_merchant_id', 'payment_idpay_api_key', 'payment_zibal_merchant',
+        'payment_zarinpal_merchant_id', 'payment_zarinpal_access_token', 'payment_idpay_api_key', 'payment_zibal_merchant',
         'eitaa_bot_token',
         'chat_ai_api_key',
     ];
@@ -49,7 +49,7 @@ class SettingsController extends Controller
         'lead_reminder_enabled', 'lead_reminder_days', 'lead_reminder_cooldown_days', 'lead_reminder_sms_message',
         'lead_reminder_first_enabled', 'lead_reminder_first_days', 'lead_reminder_first_cooldown_days', 'lead_reminder_first_sms_message',
         'lead_reminder_second_enabled', 'lead_reminder_second_days', 'lead_reminder_second_cooldown_days', 'lead_reminder_second_sms_message',
-        'payment_enabled', 'payment_gateway', 'payment_description', 'payment_zarinpal_merchant_id', 'payment_zarinpal_sandbox',
+        'payment_enabled', 'payment_gateway', 'payment_description', 'payment_zarinpal_merchant_id', 'payment_zarinpal_access_token', 'payment_zarinpal_sandbox',
         'payment_idpay_api_key', 'payment_idpay_sandbox', 'payment_zibal_merchant', 'payment_zibal_sandbox',
         'eitaa_bot_token', 'eitaa_channel_id', 'eitaa_post_template', 'eitaa_summary_image',
         'chat_enabled', 'chat_title', 'chat_greeting', 'chat_ai_enabled', 'chat_ai_api_key',

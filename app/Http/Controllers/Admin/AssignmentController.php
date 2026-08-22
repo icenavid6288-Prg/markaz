@@ -8,7 +8,6 @@ use App\Models\Lesson;
 use App\Models\Submission;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -180,7 +179,7 @@ class AssignmentController extends Controller
             'user' => $submission->user ? ['id' => $submission->user->id, 'name' => $submission->user->name, 'email' => $submission->user->email] : null,
             'content' => $submission->content,
             'attachment' => $submission->attachment,
-            'attachment_url' => $submission->attachment ? Storage::url($submission->attachment) : null,
+            'attachment_url' => $submission->attachment ? route('learning.assignment.download', $submission) : null,
             'status' => $submission->status,
             'score' => $submission->score,
             'feedback' => $submission->feedback,

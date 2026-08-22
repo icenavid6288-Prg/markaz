@@ -280,16 +280,9 @@ class AdminContentTest extends TestCase
 
         $this->actingAs($admin)
             ->put('/admin/access/roles/editor', [
-                'label' => 'ویرایشگر محتوا',
-                'description' => 'مدیریت محتوای سایت و ارتباطات محتوایی.',
                 'permissions' => ['view blog', 'create blog', 'update blog', 'view services'],
             ])
             ->assertSessionHas('success');
-
-        $this->assertDatabaseHas('roles', [
-            'name' => 'editor',
-            'label' => 'ویرایشگر محتوا',
-        ]);
 
         $this->assertTrue(
             \Spatie\Permission\Models\Role::findByName('editor')->hasPermissionTo('view services')

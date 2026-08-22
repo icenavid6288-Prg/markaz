@@ -103,6 +103,7 @@ const groupDefs: Record<string, Group> = {
         { key: 'payment_gateway', label: 'درگاه فعال', type: 'select', options: { local: 'حالت آزمایشی داخلی', zarinpal: 'زرین‌پال', idpay: 'آیدی‌پی', zibal: 'زیبال' }, defaultValue: 'local' },
         { key: 'payment_description', label: 'توضیح تراکنش', type: 'text', defaultValue: 'پرداخت سفارش مرکز رشد و کارآفرینی دکتر بیدی' },
         { key: 'payment_zarinpal_merchant_id', label: 'Merchant ID زرین‌پال', type: 'password', secret: true, help: 'از پنل زرین‌پال > درگاه‌ها دریافت کنید.' },
+        { key: 'payment_zarinpal_access_token', label: 'توکن دسترسی بازگشت وجه زرین‌پال', type: 'password', secret: true, help: 'از پنل زرین‌پال > توسعه‌دهندگان > توکن دسترسی شخصی بسازید. بدون این توکن، لغو جلسه فقط در سیستم ثبت می‌شود و مبلغ را باید دستی برگردانید.' },
         { key: 'payment_zarinpal_sandbox', label: 'محیط تست زرین‌پال', type: 'select', options: { '1': 'Sandbox / تست', '0': 'Production / واقعی' }, defaultValue: '1' },
         { key: 'payment_idpay_api_key', label: 'API Key آیدی‌پی', type: 'password', secret: true, help: 'از پنل آیدی‌پی > توسعه‌دهندگان دریافت کنید.' },
         { key: 'payment_idpay_sandbox', label: 'محیط تست آیدی‌پی', type: 'select', options: { '1': 'Sandbox / تست', '0': 'Production / واقعی' }, defaultValue: '1' },

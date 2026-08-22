@@ -24,6 +24,7 @@ interface CartItem {
 interface CartProps {
     items: CartItem[];
     totals: { subtotal: number; discount: number; total: number };
+    coupon?: { code: string; discount: number } | null;
 }
 
 export default function CartIndex() {
@@ -100,6 +101,21 @@ export default function CartIndex() {
                                 <span className="liquid-blob blob-b" aria-hidden />
                                 <div className="relative">
                                     <div className="flex items-center gap-3"><ShoppingBag className="size-5 text-brand-600" /><h2 className="text-base font-black text-navy">خلاصه خرید</h2></div>
+                                    <form
+                                        className="mt-6 flex gap-2"
+                                        onSubmit={(event) => {
+                                            event.preventDefault();
+                                            router.post('/cart/coupon', { code: couponCode }, { preserveScroll: true });
+                                        }}
+                                    >
+                                        <input value={couponCode} onChange={(event) => setCouponCode(event.target.value.toUpperCase())} placeholder="کد تخفیف" className="min-w-0 flex-1 rounded-xl border border-navy/10 bg-white px-3 py-2 text-xs font-bold text-navy outline-none focus:border-brand-500" />
+                                        {coupon ? (
+                                            <button type="button" onClick={() => router.delete('/cart/coupon', { preserveScroll: true })} className="rounded-xl border border-navy/10 px-3 py-2 text-xs font-black text-navy/60">حذف</button>
+                                        ) : (
+                                            <button type="submit" className="rounded-xl bg-brand-50 px-3 py-2 text-xs font-black text-brand-700">اعمال</button>
+                                        )}
+                                    </form>
+                                    {coupon && <p className="mt-2 text-[0.7rem] font-bold text-brand-700">کد {coupon.code} اعمال شد.</p>}
                                     <div className="mt-6 flex flex-col gap-3 border-b border-navy/10 pb-5 text-sm">
                                         <div className="flex items-center justify-between text-navy/55"><span>جمع محصولات</span><span>{formatPrice(totals.subtotal)}</span></div>
                                         {totals.discount > 0 && <div className="flex items-center justify-between text-brand-700"><span>تخفیف</span><span>− {formatPrice(totals.discount)}</span></div>}

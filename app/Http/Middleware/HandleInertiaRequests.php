@@ -33,8 +33,8 @@ class HandleInertiaRequests extends Middleware
                 ['title' => 'کوچینگ', 'url' => '/coaching', 'children' => []],
                 ['title' => 'خدمات', 'url' => '/services', 'children' => []],
                 ['title' => 'فروشگاه', 'url' => '/shop', 'children' => [
-                    ['title' => 'کتاب‌ها', 'url' => '/shop/books', 'children' => []],
-                    ['title' => 'پادکست', 'url' => '/podcasts', 'children' => []],
+                    ['title' => 'کتاب‌ها', 'url' => '/shop?type=book', 'children' => []],
+                    ['title' => 'پادکست', 'url' => '/shop?type=podcast', 'children' => []],
                 ]],
                 ['title' => 'بلاگ', 'url' => '/blog', 'children' => []],
                 ['title' => 'درباره ما', 'url' => '/about', 'children' => []],

@@ -17,7 +17,7 @@ export default function ProfessionalLayout({ role, children }: { role: 'instruct
         { label: 'داشبورد', href: '/panel/instructor', icon: LayoutDashboard },
         { label: 'دوره‌های من', href: '/admin/courses', icon: FileText },
         { label: 'یادگیرندگان', href: '/panel/instructor#learners', icon: Users },
-        { label: 'گزارش عملکرد', href: '/panel/instructor#analytics', icon: CalendarDays },
+        { label: 'تصحیح تکلیف', href: '/panel/instructor#submissions', icon: CalendarDays },
     ] : isParent ? [
         { label: 'داشبورد', href: '/panel/parent', icon: LayoutDashboard },
         { label: 'فرزندان من', href: '/panel/parent#children', icon: Users },

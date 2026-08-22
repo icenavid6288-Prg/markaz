@@ -16,15 +16,18 @@ class AuthController extends Controller
     {
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'string', 'email', 'max:255', 'unique:users,email'],
+            'email' => ['nullable', 'string', 'email', 'max:255', 'unique:users,email'],
+            'phone' => ['required', 'string', 'regex:/^09\d{9}$/', 'unique:users,phone'],
             'password' => ['required', 'confirmed', Password::defaults()],
         ]);
 
         $user = User::create([
             'name' => $validated['name'],
-            'email' => $validated['email'],
+            'email' => $validated['email'] ?? null,
+            'phone' => $validated['phone'] ?? null,
             'password' => $validated['password'],
         ]);
+        $user->assignDefaultCustomerRole();
 
         $token = $user->createToken('mobile')->plainTextToken;
 
@@ -39,11 +42,14 @@ class AuthController extends Controller
     public function login(Request $request): JsonResponse
     {
         $request->validate([
-            'email' => ['required', 'string', 'email'],
+            'email' => ['required_without:phone', 'nullable', 'string', 'email'],
+            'phone' => ['required_without:email', 'nullable', 'string', 'regex:/^09\d{9}$/'],
             'password' => ['required', 'string'],
         ]);
 
-        $user = User::where('email', $request->input('email'))->first();
+        $user = $request->filled('phone')
+            ? User::where('phone', $request->input('phone'))->first()
+            : User::where('email', $request->input('email'))->first();
 
         if (! $user || ! Hash::check($request->input('password'), $user->password)) {
             throw ValidationException::withMessages([

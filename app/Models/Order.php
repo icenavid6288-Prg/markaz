@@ -18,6 +18,8 @@ class Order extends Model
         'total',
         'payment_method',
         'paid_at',
+        'refunded_at',
+        'refund_reason',
         'reservation_expires_at',
         'billing',
     ];
@@ -26,6 +28,7 @@ class Order extends Model
     {
         return [
             'paid_at' => 'datetime',
+            'refunded_at' => 'datetime',
             'reservation_expires_at' => 'datetime',
             'billing' => 'array',
         ];
