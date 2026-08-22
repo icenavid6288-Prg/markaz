@@ -103,7 +103,8 @@ Route::get('/contact', [ContactController::class, 'index'])->name('contact.index
 
 // Private, unlisted surveys are shared directly from the admin panel.
 Route::get('/survey/{survey}/register', [SurveyController::class, 'register'])->name('survey.register');
-Route::post('/survey/{survey}/register', [SurveyController::class, 'storeRegistration'])->name('survey.register.store');
+Route::post('/survey/{survey}/register', [SurveyController::class, 'storeRegistration'])->middleware('throttle:5,1')->name('survey.register.store');
+Route::post('/survey/{survey}/register/verify', [SurveyController::class, 'verifyRegistration'])->middleware('throttle:5,1')->name('survey.register.verify');
 Route::post('/survey/{survey}/answer', [SurveyController::class, 'answer'])->middleware('throttle:30,1')->name('survey.answer');
 Route::get('/survey/{survey}', [SurveyController::class, 'show'])->name('survey.show');
 
@@ -214,6 +215,7 @@ Route::prefix('admin')
             Route::get('/create', [AdminSurveyController::class, 'create'])->middleware('permission:create surveys|manage all')->name('create');
             Route::post('/', [AdminSurveyController::class, 'store'])->middleware('permission:create surveys|manage all')->name('store');
             Route::get('/{survey}/responses.csv', [AdminSurveyController::class, 'export'])->middleware('permission:view surveys|manage all')->name('responses.export');
+            Route::get('/{survey}/responses', [AdminSurveyController::class, 'responses'])->middleware('permission:view surveys|manage all')->name('responses');
             Route::get('/{survey}/edit', [AdminSurveyController::class, 'edit'])->middleware('permission:update surveys|manage all')->name('edit');
             Route::put('/{survey}', [AdminSurveyController::class, 'update'])->middleware('permission:update surveys|manage all')->name('update');
             Route::delete('/{survey}', [AdminSurveyController::class, 'destroy'])->middleware('permission:delete surveys|manage all')->name('destroy');
@@ -226,6 +228,8 @@ Route::prefix('admin')
             Route::get('/', [PerslineController::class, 'index'])->name('index');
             Route::get('/create', [PerslineController::class, 'create'])->middleware('permission:create surveys|manage all')->name('create');
             Route::post('/', [PerslineController::class, 'store'])->middleware('permission:create surveys|manage all')->name('store');
+            Route::get('/{survey}/responses.csv', [PerslineController::class, 'export'])->middleware('permission:view surveys|manage all')->name('responses.export');
+            Route::get('/{survey}/responses', [PerslineController::class, 'responses'])->middleware('permission:view surveys|manage all')->name('responses');
             Route::get('/{survey}/edit', [PerslineController::class, 'edit'])->middleware('permission:update surveys|manage all')->name('edit');
             Route::put('/{survey}', [PerslineController::class, 'update'])->middleware('permission:update surveys|manage all')->name('update');
             Route::delete('/{survey}', [PerslineController::class, 'destroy'])->middleware('permission:delete surveys|manage all')->name('destroy');

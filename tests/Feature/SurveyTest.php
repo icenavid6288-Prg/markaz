@@ -44,12 +44,12 @@ class SurveyTest extends TestCase
                 ->where('remainingCount', 4));
 
         // After registration, survey should be accessible.
-        $this->post('/survey/'.$survey->share_token.'/register', [
+        $this->registerOnSurvey($survey, [
             'name' => 'کاربر تست',
             'phone' => '09120000002',
             'password' => 'password123',
             'password_confirmation' => 'password123',
-        ])->assertRedirect('/survey/'.$survey->share_token);
+        ]);
 
         $this->assertAuthenticated();
 
@@ -169,12 +169,12 @@ class SurveyTest extends TestCase
         $this->assertSame([(string) $questions[0]->id => 'والد', (string) $questions[1]->id => 'بله'], $response->answers);
         $this->assertSame('in_progress', $response->status);
 
-        $this->post('/survey/'.$survey->share_token.'/register', [
+        $this->registerOnSurvey($survey, [
             'name' => 'کاربر نظرسنجی',
             'phone' => '09120000001',
             'password' => 'password123',
             'password_confirmation' => 'password123',
-        ])->assertRedirect('/survey/'.$survey->share_token);
+        ]);
 
         $this->assertAuthenticated();
         $this->get('/survey/'.$survey->share_token)
@@ -200,11 +200,87 @@ class SurveyTest extends TestCase
         ]);
     }
 
+    public function test_survey_registration_uses_otp_without_password(): void
+    {
+        $survey = $this->makeSurvey(['status' => 'published', 'settings' => ['registration_after' => 0]]);
+
+        $this->post('/survey/'.$survey->share_token.'/register', [
+            'name' => 'کاربر پیامکی',
+            'phone' => '09120000003',
+        ])->assertRedirect('/survey/'.$survey->share_token.'/register?step=code');
+
+        $this->assertGuest();
+        $this->assertDatabaseMissing('users', ['phone' => '09120000003']);
+
+        $code = session('survey_register_dev_code');
+        $this->assertNotNull($code);
+
+        $this->post('/survey/'.$survey->share_token.'/register/verify', [
+            'phone' => '09120000003',
+            'code' => $code,
+        ])->assertRedirect('/survey/'.$survey->share_token);
+
+        $this->assertAuthenticated();
+        $this->assertDatabaseHas('users', ['phone' => '09120000003', 'name' => 'کاربر پیامکی']);
+    }
+
+    public function test_existing_user_can_continue_survey_with_otp_login(): void
+    {
+        $user = User::factory()->create(['name' => 'عضو قبلی', 'phone' => '09120000004']);
+        $survey = $this->makeSurvey(['status' => 'published', 'settings' => ['registration_after' => 0]]);
+
+        $this->post('/survey/'.$survey->share_token.'/register', [
+            'phone' => '09120000004',
+        ])->assertRedirect('/survey/'.$survey->share_token.'/register?step=code');
+
+        $code = session('survey_register_dev_code');
+        $this->assertNotNull($code);
+
+        $this->post('/survey/'.$survey->share_token.'/register/verify', [
+            'phone' => '09120000004',
+            'code' => $code,
+        ])->assertRedirect('/survey/'.$survey->share_token);
+
+        $this->assertAuthenticatedAs($user);
+        $this->assertSame(1, User::query()->where('phone', '09120000004')->count());
+        $this->assertDatabaseHas('survey_responses', [
+            'survey_id' => $survey->id,
+            'user_id' => $user->id,
+            'status' => 'registered',
+        ]);
+    }
+
     public function test_draft_survey_is_not_publicly_discoverable(): void
     {
         $survey = $this->makeSurvey(['status' => 'draft']);
 
         $this->get('/survey/'.$survey->share_token)->assertNotFound();
+    }
+
+    public function test_admin_can_open_survey_results_page(): void
+    {
+        $admin = User::factory()->create();
+        $admin->assignRole('admin');
+        $user = User::factory()->create(['name' => 'نرگس احمدی', 'phone' => '09125556677']);
+        $survey = $this->makeSurvey(['status' => 'published']);
+        $questions = $survey->questions()->get();
+        $survey->responses()->create([
+            'user_id' => $user->id,
+            'session_token' => Str::random(32),
+            'status' => 'completed',
+            'answers' => [(string) $questions[0]->id => 'والد'],
+            'answered_count' => 1,
+            'completed_at' => now(),
+        ]);
+
+        $this->actingAs($admin)
+            ->get('/admin/surveys/'.$survey->share_token.'/responses')
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('Admin/Surveys/Responses')
+                ->where('kind', 'survey')
+                ->where('responses.data.0.user.name', 'نرگس احمدی')
+                ->where('responses.data.0.answers.0.value', 'والد'));
     }
 
     public function test_admin_can_create_and_edit_private_survey(): void
@@ -528,6 +604,21 @@ class SurveyTest extends TestCase
         }
 
         return $codepoints;
+    }
+
+    /** @param array{name: string, phone: string, password: string, password_confirmation: string} $payload */
+    private function registerOnSurvey(Survey $survey, array $payload): void
+    {
+        $this->post('/survey/'.$survey->share_token.'/register', $payload)
+            ->assertRedirect('/survey/'.$survey->share_token.'/register?step=code');
+
+        $code = session('survey_register_dev_code');
+        $this->assertNotNull($code);
+
+        $this->post('/survey/'.$survey->share_token.'/register/verify', [
+            'phone' => $payload['phone'],
+            'code' => $code,
+        ])->assertRedirect('/survey/'.$survey->share_token);
     }
 
     private function makeSurvey(array $attributes = []): Survey

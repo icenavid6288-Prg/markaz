@@ -88,6 +88,7 @@ export default function PerslineIndex() {
                         <td className="px-5 py-4"><span className="text-sm font-black text-navy">{form.responses_count}</span><span className="mr-1 text-xs text-navy/40">({form.completed_responses_count} کامل)</span></td>
                         <td className="px-5 py-4"><button type="button" onClick={() => copyLink(form)} className="inline-flex items-center gap-1.5 rounded-lg bg-brand-50 px-3 py-2 text-xs font-black text-brand-700 hover:bg-brand-100"><Link2 className="size-3.5" /> کپی لینک</button></td>
                         <td className="px-5 py-4"><div className="flex items-center gap-1.5">
+                            <Link href={`/admin/persline/${form.share_token}/responses`} className="flex size-8 items-center justify-center rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100" aria-label="نتایج پاسخ‌ها" title="مشاهده پاسخ هر کاربر"><Users className="size-3.5" /></Link>
                             <a href={form.share_url} target="_blank" rel="noreferrer" className="flex size-8 items-center justify-center rounded-lg bg-soft-gray text-navy/60 hover:bg-brand-100 hover:text-brand-700" aria-label="مشاهده"><Eye className="size-3.5" /></a>
                             <button type="button" onClick={() => publishToEitaa(form)} disabled={form.status !== 'published'} className="flex size-8 items-center justify-center rounded-lg bg-teal-50 text-teal-700 hover:bg-teal-100 disabled:cursor-not-allowed disabled:opacity-40" aria-label="انتشار در کانال ایتا" title="انتشار خودکار در کانال ایتا"><Send className="size-3.5" /></button>
                             <button type="button" onClick={() => shareOnEitaa(form)} className="flex size-8 items-center justify-center rounded-lg bg-soft-gray text-navy/60 hover:bg-brand-100 hover:text-brand-700" aria-label="اشتراک‌گذاری در ایتا" title="بازکردن ایتا با پیام آماده"><Share2 className="size-3.5" /></button>
@@ -103,7 +104,7 @@ export default function PerslineIndex() {
         </section>
         <section className="flex items-start gap-3 rounded-2xl border border-brand-100 bg-brand-50/70 p-5 text-sm leading-7 text-brand-950">
             <Users className="mt-0.5 size-5 shrink-0 text-brand-600" />
-            <p><strong>پاسخ‌ها کجا می‌روند؟</strong> پاسخ‌های فرم در همین صفحه و با خروجی CSV قابل مشاهده‌اند؛ در قالب «لید گرم» فیلدهای نام و شماره تماس به‌صورت خودکار به سرنخ‌های CRM متصل می‌شوند.</p>
+            <p><strong>پاسخ‌ها کجا می‌روند؟</strong> روی آیکون کاربران بزنید تا ببینید هر نفر چه جوابی داده است. خروجی CSV هم همان‌جا در دسترس است. در قالب «لید گرم» نام و شماره تماس به سرنخ‌های CRM وصل می‌شوند. ثبت‌نام پاسخ‌دهنده مثل ورود سایت با کد پیامکی است.</p>
         </section>
     </div>;
 }

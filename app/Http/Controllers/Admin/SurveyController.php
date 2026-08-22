@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Survey;
 use App\Services\Eitaa\EitaaPublisher;
+use App\Support\SurveyResults;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -59,25 +60,14 @@ class SurveyController extends Controller
         return redirect()->route('admin.surveys.edit', $survey)->with('success', 'نظرسنجی ساخته شد. لینک خصوصی آن آماده انتشار است.');
     }
 
-    public function export(Survey $survey): StreamedResponse
+    public function responses(Request $request, Survey $survey, SurveyResults $results): Response
     {
-        $survey->load('questions');
-        $questions = $survey->questions->keyBy('id');
+        return Inertia::render('Admin/Surveys/Responses', $results->page($survey, $request, 'survey'));
+    }
 
-        return response()->streamDownload(function () use ($survey, $questions): void {
-            $output = fopen('php://output', 'w');
-            fputcsv($output, ['نظرسنجی', 'وضعیت', 'نام کاربر', 'موبایل', 'تعداد پاسخ', 'شروع', 'تکمیل', 'پاسخ‌ها']);
-            $survey->responses()->with('user:id,name,phone')->latest()->chunk(200, function ($responses) use ($output, $questions): void {
-                foreach ($responses as $response) {
-                    $answers = collect($response->answers ?? [])->mapWithKeys(function ($value, $questionId) use ($questions) {
-                        $question = $questions->get((int) $questionId);
-                        return [($question?->title ?: 'سؤال '.$questionId) => is_array($value) ? implode('، ', $value) : (string) $value];
-                    })->all();
-                    fputcsv($output, [$survey->title, $response->status, $response->user?->name ?? 'مهمان', $response->user?->phone ?? '', $response->answered_count, $response->created_at?->format('Y-m-d H:i'), $response->completed_at?->format('Y-m-d H:i') ?? '', json_encode($answers, JSON_UNESCAPED_UNICODE)]);
-                }
-            });
-            fclose($output);
-        }, 'survey-'.$survey->id.'-responses.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
+    public function export(Survey $survey, SurveyResults $results): StreamedResponse
+    {
+        return $results->csv($survey, 'survey');
     }
 
     public function edit(Survey $survey): Response
@@ -277,14 +267,10 @@ class SurveyController extends Controller
                 'is_required' => $question->is_required,
                 'include_in_summary' => $question->include_in_summary !== false,
             ])->values()->all();
-            $data['responses'] = $survey->responses()->with('user:id,name,phone')->latest()->limit(100)->get()->map(fn ($response) => [
-                'id' => $response->id,
-                'status' => $response->status,
-                'answered_count' => $response->answered_count,
-                'user' => $response->user ? ['name' => $response->user->name, 'phone' => $response->user->phone] : null,
-                'created_at' => $response->created_at?->format('Y/m/d H:i'),
-                'completed_at' => $response->completed_at?->format('Y/m/d H:i'),
-            ])->all();
+            $results = app(SurveyResults::class);
+            $data['responses'] = $survey->responses()->with('user:id,name,phone')->latest()->limit(50)->get()
+                ->map(fn ($response) => $results->presentResponse($response, $survey->questions))
+                ->all();
         }
 
         return $data;

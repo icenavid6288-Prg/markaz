@@ -2,19 +2,25 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\PhoneLoginToken;
 use App\Models\Survey;
 use App\Models\SurveyQuestion;
 use App\Models\SurveyResponse;
 use App\Models\User;
 use App\Services\Crm\LeadService;
 use App\Services\Crm\SurveyLeadLinker;
+use App\Services\Sms\SmsSender;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rules;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
+use Throwable;
 
 /**
  * @phpstan-return Response|RedirectResponse
@@ -141,51 +147,190 @@ class SurveyController extends Controller
 
         $totalQuestions = $survey->questions()->count();
 
+        $sessionPhone = (string) $request->session()->get('survey_register_phone_'.$survey->id, '');
+        $showCodeStep = $request->query('step') === 'code' && filled($sessionPhone);
+
         return Inertia::render('Survey/Register', [
             'survey' => ['title' => $survey->title],
             'answeredCount' => $response->answered_count,
             'remainingCount' => max(0, $totalQuestions - $response->answered_count),
             'registerBeforeStart' => $survey->registrationAfter() === 0,
+            'status' => session('status'),
+            'step' => $showCodeStep ? 'code' : 'form',
+            'phone' => $showCodeStep ? $sessionPhone : '',
+            'dev_code' => $showCodeStep && app()->environment(['local', 'testing'])
+                ? $request->session()->get('survey_register_dev_code')
+                : null,
         ]);
     }
 
-    public function storeRegistration(Request $request, Survey $survey, LeadService $leads): RedirectResponse
+    public function storeRegistration(Request $request, Survey $survey, SmsSender $sms): RedirectResponse
     {
         $this->ensureAvailable($survey);
         if ($request->user()) {
             return redirect()->route('survey.show', $survey);
         }
 
+        $this->resolveResponse($request, $survey);
+        $pending = $request->session()->get('survey_register_data_'.$survey->id);
+        $phone = $request->string('phone')->toString();
+        $resending = is_array($pending) && $phone !== '' && hash_equals((string) ($pending['phone'] ?? ''), $phone);
+        $existing = $phone !== '' ? User::query()->where('phone', $phone)->first() : null;
+
+        $rules = [
+            'phone' => ['required', 'string', 'regex:/^09\d{9}$/'],
+        ];
+        if (! $resending) {
+            $rules['name'] = $existing ? ['nullable', 'string', 'max:255'] : ['required', 'string', 'max:255'];
+            $rules['password'] = ['nullable', 'confirmed', Rules\Password::defaults()];
+        }
+
+        $request->validate($rules);
+
+        if ($existing && ! $existing->is_active) {
+            throw ValidationException::withMessages([
+                'phone' => 'این حساب کاربری غیرفعال است. با پشتیبانی تماس بگیرید.',
+            ]);
+        }
+
+        $phone = $request->string('phone')->toString();
+        $requestKey = 'survey-register:'.$phone;
+        $ipKey = 'survey-register-ip:'.$request->ip();
+        if (RateLimiter::tooManyAttempts($requestKey, 3) || RateLimiter::tooManyAttempts($ipKey, 20)) {
+            $seconds = max(RateLimiter::availableIn($requestKey), RateLimiter::availableIn($ipKey));
+
+            throw ValidationException::withMessages([
+                'phone' => 'درخواست‌های زیادی ثبت کرده‌اید. لطفاً '.ceil($seconds / 60).' دقیقه دیگر تلاش کنید.',
+            ]);
+        }
+        RateLimiter::hit($requestKey, 300);
+        RateLimiter::hit($ipKey, 300);
+
+        $code = (string) random_int(100000, 999999);
+        PhoneLoginToken::updateOrCreate(
+            ['phone' => $phone],
+            ['token' => Hash::make($code), 'created_at' => now()],
+        );
+
+        try {
+            $sms->sendOtp($phone, $code);
+        } catch (Throwable $exception) {
+            report($exception);
+
+            throw ValidationException::withMessages([
+                'phone' => 'ارسال کد تأیید ناموفق بود. لطفاً کمی بعد دوباره تلاش کنید.',
+            ]);
+        }
+
+        $request->session()->put('survey_register_phone_'.$survey->id, $phone);
+        if (! $resending) {
+            $request->session()->put('survey_register_data_'.$survey->id, [
+                'name' => $request->string('name')->toString() ?: (string) ($existing?->name ?? ''),
+                'phone' => $phone,
+                'password' => $request->filled('password') ? $request->string('password')->toString() : null,
+                'existing_user_id' => $existing?->id,
+            ]);
+        }
+        if (app()->environment(['local', 'testing'])) {
+            $request->session()->flash('survey_register_dev_code', $code);
+        }
+
+        return redirect()->route('survey.register', ['survey' => $survey, 'step' => 'code'])
+            ->with('status', 'کد تأیید به شماره شما پیامک شد.');
+    }
+
+    public function verifyRegistration(Request $request, Survey $survey, LeadService $leads): RedirectResponse
+    {
+        $this->ensureAvailable($survey);
+        if ($request->user()) {
+            return redirect()->route('survey.show', $survey);
+        }
+
+        $request->validate([
+            'phone' => ['required', 'string', 'regex:/^09\d{9}$/'],
+            'code' => ['required', 'string', 'size:6'],
+        ]);
+
+        $phone = $request->string('phone')->toString();
+        $sessionPhone = (string) $request->session()->get('survey_register_phone_'.$survey->id, '');
+        $pending = $request->session()->get('survey_register_data_'.$survey->id);
+
+        if ($sessionPhone === '' || ! hash_equals($sessionPhone, $phone) || ! is_array($pending)) {
+            throw ValidationException::withMessages([
+                'phone' => 'نشست ثبت‌نام منقضی شده است. دوباره فرم را تکمیل کنید.',
+            ]);
+        }
+
+        $verifyKey = 'survey-register-verify:'.$phone;
+        if (RateLimiter::tooManyAttempts($verifyKey, 5)) {
+            throw ValidationException::withMessages([
+                'code' => 'تعداد تلاش‌ها بیش از حد مجاز است. کمی بعد کد جدید بگیرید.',
+            ]);
+        }
+
+        $token = PhoneLoginToken::where('phone', $phone)->first();
+        if (! $token || $token->created_at->addMinutes(5)->isPast()) {
+            $token?->delete();
+            throw ValidationException::withMessages(['code' => 'کد تأیید منقضی شده است. دوباره درخواست دهید.']);
+        }
+
+        if (! Hash::check($request->string('code')->toString(), $token->token)) {
+            RateLimiter::hit($verifyKey, 300);
+            throw ValidationException::withMessages(['code' => 'کد واردشده صحیح نیست.']);
+        }
+
+        $existingId = $pending['existing_user_id'] ?? null;
+        $user = $existingId
+            ? User::query()->where('id', $existingId)->where('phone', $phone)->where('is_active', true)->first()
+            : null;
+
+        if ($existingId && ! $user) {
+            throw ValidationException::withMessages(['phone' => 'حساب کاربری یافت نشد. دوباره شماره را وارد کنید.']);
+        }
+
+        if (! $user && User::query()->where('phone', $phone)->exists()) {
+            throw ValidationException::withMessages(['phone' => 'شماره موبایل قبلاً ثبت شده است. دوباره کد بگیرید تا وارد شوید.']);
+        }
+
+        RateLimiter::clear($verifyKey);
+        $token->delete();
+
+        $created = false;
+        if (! $user) {
+            $user = User::create([
+                'name' => $pending['name'] ?: 'کاربر فرم',
+                'phone' => $pending['phone'],
+                'password' => filled($pending['password'] ?? null) ? $pending['password'] : Str::password(20),
+            ]);
+            $user->assignDefaultCustomerRole();
+            $created = true;
+
+            $lead = $leads->findOrCreate($pending['phone'], $pending['name'] ?: $user->name);
+            $lead->fill(['name' => $user->name, 'source' => 'registration'])->save();
+            $leads->linkToUser($lead, $user, 'ثبت‌نام از داخل فرم «'.$survey->title.'»');
+        }
+
         $response = $this->resolveResponse($request, $survey);
-        $data = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'phone' => ['required', 'string', 'regex:/^09\d{9}$/', 'unique:'.User::class],
-            'password' => ['required', 'confirmed', Rules\Password::defaults()],
-        ]);
-
-        $user = User::create([
-            'name' => $data['name'],
-            'phone' => $data['phone'],
-            // The User model hashes the password via the 'hashed' cast.
-            'password' => $data['password'],
-        ]);
-
         $response->update([
             'user_id' => $user->id,
-            'status' => 'registered',
-            'registered_at' => now(),
+            'status' => $response->status === 'completed' ? 'completed' : 'registered',
+            'registered_at' => $response->registered_at ?? now(),
         ]);
 
-        // Keep the CRM in sync with the main registration flow: the form is a
-        // lead-capture touchpoint, so the new account gets a linked lead too.
-        $lead = $leads->findOrCreate($data['phone'], $data['name']);
-        $lead->fill(['name' => $data['name'], 'source' => 'registration'])->save();
-        $leads->linkToUser($lead, $user, 'ثبت‌نام از داخل فرم «'.$survey->title.'»');
-
-        Auth::login($user);
+        $request->session()->forget([
+            'survey_register_phone_'.$survey->id,
+            'survey_register_data_'.$survey->id,
+            'survey_register_dev_code',
+        ]);
         $request->session()->regenerate();
+        Auth::login($user);
 
-        return redirect()->route('survey.show', $survey)->with('success', 'حساب شما ساخته شد؛ حالا ادامه نظرسنجی را تکمیل کنید.');
+        return redirect()->route('survey.show', $survey)->with(
+            'success',
+            $created
+                ? 'حساب شما با تأیید پیامکی ساخته شد؛ حالا فرم را تکمیل کنید.'
+                : 'وارد شدید؛ حالا ادامه فرم را تکمیل کنید.',
+        );
     }
 
     private function ensureAvailable(Survey $survey): void
