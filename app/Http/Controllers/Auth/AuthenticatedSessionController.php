@@ -12,7 +12,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
-use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
@@ -82,18 +81,10 @@ class AuthenticatedSessionController extends Controller
     }
 
     /**
-     * Authenticate with phone + password, or send a one-time login code
-     * to the submitted phone number when no password is provided.
+     * Send a one-time SMS login code. Public login never accepts a password.
      */
     public function store(Request $request, SmsSender $sms): RedirectResponse
     {
-        if ($request->filled('password')) {
-            $this->authenticateWithPassword($request);
-            $request->session()->regenerate();
-
-            return redirect()->intended(route('dashboard', absolute: false));
-        }
-
         $request->validate([
             'phone' => ['required', 'string', 'regex:/^09\d{9}$/'],
         ]);
@@ -271,57 +262,12 @@ class AuthenticatedSessionController extends Controller
     }
 
     /**
-     * Authenticate any active user with a phone number and password.
-     *
-     * @throws ValidationException
-     */
-    private function authenticateWithPassword(Request $request): void
-    {
-        $request->validate([
-            'phone' => ['required', 'string', 'regex:/^09\d{9}$/'],
-            'password' => ['required', 'string'],
-            'remember' => ['sometimes', 'boolean'],
-        ]);
-
-        $phone = $request->string('phone')->toString();
-        $phoneKey = 'password-login:'.Str::lower($phone).'|'.$request->ip();
-        $ipKey = 'password-login-ip:'.$request->ip();
-
-        if (RateLimiter::tooManyAttempts($phoneKey, 5) || RateLimiter::tooManyAttempts($ipKey, 30)) {
-            $seconds = max(RateLimiter::availableIn($phoneKey), RateLimiter::availableIn($ipKey));
-
-            throw ValidationException::withMessages([
-                'phone' => 'تعداد تلاش‌های ناموفق بیش از حد مجاز است. لطفاً '.ceil($seconds / 60).' دقیقه دیگر تلاش کنید.',
-            ]);
-        }
-
-        $user = User::query()
-            ->where('phone', $phone)
-            ->where('is_active', true)
-            ->first();
-
-        if (! $user || ! Hash::check($request->string('password')->toString(), (string) $user->password)) {
-            RateLimiter::hit($phoneKey, 300);
-            RateLimiter::hit($ipKey, 300);
-
-            throw ValidationException::withMessages([
-                'phone' => 'شماره موبایل یا رمز عبور صحیح نیست.',
-            ]);
-        }
-
-        RateLimiter::clear($phoneKey);
-        RateLimiter::clear($ipKey);
-        Auth::login($user, $request->boolean('remember'));
-    }
-
-    /**
      * @param array<string, mixed> $extra
      * @return array<string, mixed>
      */
     private function loginProps(array $extra = []): array
     {
         return [
-            'canResetPassword' => Route::has('password.request'),
             'status' => session('status'),
             ...$extra,
         ];
