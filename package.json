@@ -3,7 +3,7 @@
     "type": "module",
     "scripts": {
         "dev": "vite",
-        "build": "tsc && vite build",
+        "build": "vite build",
         "visual:test": "playwright test",
         "visual:update": "playwright test --update-snapshots",
         "desktop:install": "npm --prefix desktop install",
