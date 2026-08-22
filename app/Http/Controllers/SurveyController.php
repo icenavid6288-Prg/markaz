@@ -55,6 +55,7 @@ class SurveyController extends Controller
                 'show_progress' => (bool) $survey->setting('show_progress', true),
                 'allow_back_navigation' => (bool) $survey->setting('allow_back_navigation', true),
                 'completion_redirect' => $this->safeRedirect((string) $survey->setting('completion_redirect', '')),
+                'poster_url' => $survey->posterUrl(),
             ],
             'questions' => $visibleQuestions->map(fn (SurveyQuestion $q) => $this->presentQuestion($q))->values()->all(),
             'answers' => collect($answers)->filter(fn ($value, $key) => $visibleQuestions->pluck('id')->contains((int) $key))->all(),

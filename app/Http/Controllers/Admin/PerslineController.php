@@ -66,6 +66,7 @@ class PerslineController extends Controller
 
             return $survey;
         });
+        $this->storePoster($request, $survey);
 
         return redirect()->route('admin.persline.edit', $survey)->with('success', 'فرم پرسلاین ساخته شد؛ لینک پاسخ‌گویی آماده انتشار است.');
     }
@@ -96,6 +97,7 @@ class PerslineController extends Controller
             $survey->questions()->delete();
             $this->syncQuestions($survey, $questions);
         });
+        $this->storePoster($request, $survey->fresh() ?? $survey);
 
         return back()->with('success', 'فرم پرسلاین و سؤال‌های آن ذخیره شد.');
     }
@@ -212,6 +214,8 @@ class PerslineController extends Controller
             'questions.*.settings' => ['nullable', 'array'],
             'questions.*.settings.lead_key' => ['nullable', 'in:name,phone,email,child_age,grade,need,child_name'],
             'file' => ['nullable', 'file', 'mimes:json,csv,txt', 'max:4096'],
+            'poster_file' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
+            'remove_poster' => ['sometimes', 'boolean'],
         ]);
 
         $questions = $request->hasFile('file')
@@ -229,7 +233,7 @@ class PerslineController extends Controller
             $data['settings'] ?? [],
         );
         $data['questions'] = $questions;
-        unset($data['file']);
+        unset($data['file'], $data['poster_file'], $data['remove_poster']);
 
         return $data;
     }
@@ -465,6 +469,7 @@ class PerslineController extends Controller
             'questions_count' => $survey->questions_count ?? $survey->questions()->count(),
             'responses_count' => $survey->responses_count ?? $survey->responses()->count(),
             'completed_responses_count' => $survey->completed_responses_count ?? $survey->responses()->where('status', 'completed')->count(),
+            'poster_url' => $survey->posterUrl(),
         ];
 
         if ($withQuestions) {
@@ -480,6 +485,56 @@ class PerslineController extends Controller
         }
 
         return $data;
+    }
+
+    private function storePoster(Request $request, Survey $survey): void
+    {
+        $settings = is_array($survey->settings) ? $survey->settings : [];
+        $current = (string) ($settings['poster'] ?? '');
+
+        if ($request->boolean('remove_poster') && ! $request->hasFile('poster_file')) {
+            $this->deletePosterFile($current);
+            $settings['poster'] = '';
+            $survey->update(['settings' => $settings]);
+
+            return;
+        }
+
+        $file = $request->file('poster_file');
+        if (! $file || ! $file->isValid()) {
+            return;
+        }
+
+        $directory = public_path('images/surveys');
+        if (! is_dir($directory)) {
+            mkdir($directory, 0755, true);
+        }
+
+        $prefix = 'survey-'.$survey->getKey().'-poster';
+        foreach (glob($directory.'/'.$prefix.'.*') ?: [] as $oldFile) {
+            if (is_file($oldFile)) {
+                @unlink($oldFile);
+            }
+        }
+
+        $extension = strtolower($file->extension() ?: 'jpg');
+        if (! in_array($extension, ['jpg', 'jpeg', 'png', 'webp'], true)) {
+            $extension = 'jpg';
+        }
+        $file->move($directory, $prefix.'.'.$extension);
+        $settings['poster'] = '/images/surveys/'.$prefix.'.'.$extension;
+        $survey->update(['settings' => $settings]);
+    }
+
+    private function deletePosterFile(string $path): void
+    {
+        if ($path === '' || ! str_starts_with($path, '/images/surveys/')) {
+            return;
+        }
+        $full = public_path(ltrim($path, '/'));
+        if (is_file($full)) {
+            @unlink($full);
+        }
     }
 
     private function ensurePersline(Survey $survey): void

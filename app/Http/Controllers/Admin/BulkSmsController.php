@@ -6,11 +6,13 @@ use App\Http\Controllers\Controller;
 use App\Models\BulkSmsRun;
 use App\Models\Setting;
 use App\Services\Sms\SmsSender;
+use App\Support\BulkSmsTables;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -21,13 +23,12 @@ class BulkSmsController extends Controller
 {
     public function index(): Response
     {
+        BulkSmsTables::ensure();
+
         return Inertia::render('Admin/Marketing/BulkSms', [
-            'smsEnabled' => Setting::get('sms_enabled', false),
+            'smsEnabled' => (bool) Setting::get('sms_enabled', false),
             'stats' => [
-                'totalSent' => (int) DB::table('marketing_campaign_recipients')
-                    ->where('status', 'sent')
-                    ->where('channel', 'sms')
-                    ->count(),
+                'totalSent' => $this->sentCount(),
             ],
         ]);
     }
@@ -61,23 +62,22 @@ class BulkSmsController extends Controller
         $valid = collect($valid)->unique('phone')->values()->all();
 
         return Inertia::render('Admin/Marketing/BulkSms', [
-            'smsEnabled' => Setting::get('sms_enabled', false),
+            'smsEnabled' => (bool) Setting::get('sms_enabled', false),
             'preview' => [
                 'contacts' => array_slice($valid, 0, 10),
                 'total' => count($valid),
                 'skipped' => $skipped,
             ],
             'stats' => [
-                'totalSent' => (int) DB::table('marketing_campaign_recipients')
-                    ->where('status', 'sent')
-                    ->where('channel', 'sms')
-                    ->count(),
+                'totalSent' => $this->sentCount(),
             ],
         ]);
     }
 
     public function send(Request $request, SmsSender $smsSender): RedirectResponse
     {
+        BulkSmsTables::ensure();
+
         $validated = $request->validate([
             'file' => ['required', 'file', 'max:10240', 'mimes:csv,txt,xlsx'],
             'message' => ['required', 'string', 'max:500'],
@@ -176,7 +176,7 @@ class BulkSmsController extends Controller
         $firstLine = fgets($handle) ?: '';
         $delimiter = substr_count($firstLine, ';') > substr_count($firstLine, ',') ? ';' : ',';
         rewind($handle);
-        $headers = fgetcsv($handle, 0, $delimiter);
+        $headers = fgetcsv($handle, 0, $delimiter, '"', '\\');
         if ($headers === false) {
             fclose($handle);
             throw new RuntimeException('سطر عنوان ستون‌ها در فایل پیدا نشد.');
@@ -188,7 +188,7 @@ class BulkSmsController extends Controller
         }
 
         $rows = [];
-        while (($values = fgetcsv($handle, 0, $delimiter)) !== false) {
+        while (($values = fgetcsv($handle, 0, $delimiter, '"', '\\')) !== false) {
             if (count($rows) >= 10000) {
                 fclose($handle);
                 throw new RuntimeException('حداکثر ۱۰٬۰۰۰ ردیف در هر فایل قابل ورود است.');

@@ -12,7 +12,7 @@ export default function SurveyRegister({
     phone = '',
     dev_code = null,
 }: {
-    survey: { title: string };
+    survey: { title: string; poster_url?: string | null };
     answeredCount: number;
     remainingCount: number;
     registerBeforeStart?: boolean;
@@ -66,6 +66,11 @@ export default function SurveyRegister({
                     <div className="text-sm font-black text-navy">ادامه فرم</div>
                     <Link href="/" className="inline-flex items-center gap-1 text-xs font-bold text-navy/45 hover:text-brand-700">سایت <ArrowRight className="size-3.5" /></Link>
                 </header>
+                {survey.poster_url && (
+                    <section className="overflow-hidden rounded-[2rem] bg-white shadow-lift ring-1 ring-navy/5">
+                        <img src={survey.poster_url} alt={survey.title} className="max-h-[28rem] w-full object-cover" />
+                    </section>
+                )}
                 <section className="rounded-[2rem] bg-deep-gradient p-7 text-white shadow-lift md:p-10">
                     <div className="flex items-center gap-2 text-xs font-black text-brand-200"><Rocket className="size-4" /> تأیید شماره موبایل</div>
                     <h1 className="mt-4 text-2xl font-black leading-relaxed">

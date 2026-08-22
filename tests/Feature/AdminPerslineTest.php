@@ -193,6 +193,34 @@ class AdminPerslineTest extends TestCase
         $this->assertStringContainsString('۱۵–۱۶', $csv);
     }
 
+    public function test_admin_can_attach_a_poster_to_the_form(): void
+    {
+        $admin = User::factory()->create();
+        $admin->assignRole('admin');
+        $poster = UploadedFile::fake()->image('poster.jpg', 800, 450);
+
+        $this->actingAs($admin)->post('/admin/persline', [
+            'persline_type' => 'ads',
+            'title' => 'فرم با پوستر',
+            'status' => 'published',
+            'settings' => ['registration_after' => 999],
+            'questions' => [
+                ['type' => 'single', 'title' => 'سن فرزند؟', 'options' => ['۱۳–۱۴', '۱۵–۱۶']],
+            ],
+            'poster_file' => $poster,
+        ])->assertRedirect();
+
+        $form = Survey::where('title', 'فرم با پوستر')->firstOrFail();
+        $this->assertStringStartsWith('/images/surveys/survey-'.$form->id.'-poster.', $form->posterUrl());
+        $this->assertFileExists(public_path(ltrim($form->posterUrl(), '/')));
+
+        $this->get('/survey/'.$form->share_token)
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('Survey/Show')
+                ->where('survey.poster_url', $form->posterUrl()));
+    }
+
     public function test_admin_can_delete_a_form(): void
     {
         $admin = User::factory()->create();
