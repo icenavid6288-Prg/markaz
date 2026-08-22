@@ -16,7 +16,6 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
-use Illuminate\Validation\Rules;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -65,7 +64,6 @@ class RegisteredUserController extends Controller
         if (! $resending) {
             $rules['name'] = 'required|string|max:255';
             $rules['phone'][] = 'unique:'.User::class;
-            $rules['password'] = ['required', 'confirmed', Rules\Password::defaults()];
             $rules['referral_code'] = ['nullable', 'string', 'max:12'];
         }
 
@@ -112,7 +110,6 @@ class RegisteredUserController extends Controller
             $request->session()->put('register_data', [
                 'name' => $request->string('name')->toString(),
                 'phone' => $phone,
-                'password' => Hash::make($request->string('password')->toString()),
                 'referral_code' => $request->string('referral_code')->toString() ?: null,
             ]);
         }
@@ -217,7 +214,7 @@ class RegisteredUserController extends Controller
         $user = User::create([
             'name' => $pending['name'],
             'phone' => $pending['phone'],
-            'password' => $pending['password'],
+            'password' => Str::password(40),
         ]);
         $user->assignDefaultCustomerRole();
 

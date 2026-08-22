@@ -31,9 +31,9 @@ class AdminAccessTest extends TestCase
             ->assertInertia(fn ($page) => $page->component('Auth/AdminLogin'));
     }
 
-    public function test_admin_can_login_with_a_password_without_an_sms_code(): void
+    public function test_admin_login_sends_an_sms_code_and_rejects_passwords(): void
     {
-        $admin = User::factory()->create(['password' => 'password']);
+        $admin = User::factory()->create();
         $admin->assignRole('admin');
 
         $this->post('/admin/login', [
@@ -41,25 +41,44 @@ class AdminAccessTest extends TestCase
             'password' => 'password',
             'remember' => true,
         ])
-            ->assertRedirect('/admin');
+            ->assertRedirect(route('admin.login', ['step' => 'code'], absolute: false));
+
+        $this->assertGuest();
+        $this->assertDatabaseHas('phone_login_tokens', ['phone' => $admin->phone]);
+        $this->assertNotNull(session('admin_login_dev_code'));
+    }
+
+    public function test_admin_can_verify_the_sms_code_and_enter_the_panel(): void
+    {
+        $admin = User::factory()->create();
+        $admin->assignRole('admin');
+
+        $this->post('/admin/login', ['phone' => $admin->phone]);
+        $code = session('admin_login_dev_code');
+
+        $this->post('/admin/login/verify', [
+            'phone' => $admin->phone,
+            'code' => $code,
+            'remember' => true,
+        ])->assertRedirect('/admin');
 
         $this->assertAuthenticatedAs($admin);
-        $this->assertDatabaseCount('phone_login_tokens', 0);
+        $this->assertDatabaseMissing('phone_login_tokens', ['phone' => $admin->phone]);
     }
 
     public function test_non_admin_cannot_use_the_admin_login(): void
     {
-        $student = User::factory()->create(['password' => 'password']);
+        $student = User::factory()->create();
         $student->assignRole('student');
 
         $this->from('/admin/login')
             ->post('/admin/login', [
                 'phone' => $student->phone,
-                'password' => 'password',
             ])
             ->assertSessionHasErrors('phone');
 
         $this->assertGuest();
+        $this->assertDatabaseCount('phone_login_tokens', 0);
     }
 
     public function test_super_admin_can_access_dashboard(): void

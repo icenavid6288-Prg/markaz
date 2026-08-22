@@ -1,5 +1,5 @@
 import { Head, Link, useForm, usePage } from '@inertiajs/react';
-import { ArrowLeft, Eye, EyeOff, Gift, KeyRound, Rocket, ShieldCheck, Smartphone, Ticket, User } from 'lucide-react';
+import { ArrowLeft, Gift, Rocket, ShieldCheck, Smartphone, Ticket, User } from 'lucide-react';
 import { FormEventHandler, useEffect, useState } from 'react';
 import type { PageProps } from '@/types';
 import GuestLayout from '@/Layouts/GuestLayout';
@@ -19,15 +19,12 @@ export default function Register({
     const query = new URLSearchParams(url.split('?')[1] ?? '');
     const referralFromQuery = query.get('referral') ?? '';
     const phoneFromQuery = query.get('phone') ?? '';
-    const { data, setData, post, processing, errors, reset } = useForm({
+    const { data, setData, post, processing, errors } = useForm({
         name: '',
         phone: step === 'code' ? phone : phoneFromQuery,
         code: '',
-        password: '',
-        password_confirmation: '',
         referral_code: referralFromQuery,
     });
-    const [showPassword, setShowPassword] = useState(false);
     const [resendSeconds, setResendSeconds] = useState(0);
 
     useEffect(() => {
@@ -54,7 +51,6 @@ export default function Register({
         post(route('register'), {
             preserveScroll: true,
             preserveState: true,
-            onFinish: () => reset('password', 'password_confirmation'),
         });
     };
 
@@ -225,61 +221,6 @@ export default function Register({
                             </div>
                             {errors.referral_code && (
                                 <p className="mt-1.5 text-xs font-bold text-red-600">{errors.referral_code}</p>
-                            )}
-                        </div>
-
-                        <div>
-                            <label htmlFor="password" className="mb-1.5 block text-xs font-black text-navy/70">
-                                رمز عبور
-                            </label>
-                            <div className="relative">
-                                <KeyRound className="pointer-events-none absolute right-4 top-1/2 size-4 -translate-y-1/2 text-navy/30" aria-hidden />
-                                <input
-                                    id="password"
-                                    type={showPassword ? 'text' : 'password'}
-                                    name="password"
-                                    dir="ltr"
-                                    value={data.password}
-                                    autoComplete="new-password"
-                                    placeholder="حداقل ۸ کاراکتر"
-                                    onChange={(e) => setData('password', e.target.value)}
-                                    className="w-full rounded-2xl border border-navy/10 bg-white py-3 pl-12 pr-11 text-left text-sm text-navy outline-none transition-all placeholder:text-navy/30 focus:border-brand-500 focus:ring-4 focus:ring-brand-200/40"
-                                />
-                                <button
-                                    type="button"
-                                    onClick={() => setShowPassword((v) => !v)}
-                                    className="absolute left-3 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-lg text-navy/35 transition-colors hover:text-brand-700"
-                                    aria-label={showPassword ? 'پنهان کردن رمز عبور' : 'نمایش رمز عبور'}
-                                    tabIndex={-1}
-                                >
-                                    {showPassword ? <EyeOff className="size-4" aria-hidden /> : <Eye className="size-4" aria-hidden />}
-                                </button>
-                            </div>
-                            {errors.password && (
-                                <p className="mt-1.5 text-xs font-bold text-red-600">{errors.password}</p>
-                            )}
-                        </div>
-
-                        <div>
-                            <label htmlFor="password_confirmation" className="mb-1.5 block text-xs font-black text-navy/70">
-                                تکرار رمز عبور
-                            </label>
-                            <div className="relative">
-                                <KeyRound className="pointer-events-none absolute right-4 top-1/2 size-4 -translate-y-1/2 text-navy/30" aria-hidden />
-                                <input
-                                    id="password_confirmation"
-                                    type={showPassword ? 'text' : 'password'}
-                                    name="password_confirmation"
-                                    dir="ltr"
-                                    value={data.password_confirmation}
-                                    autoComplete="new-password"
-                                    placeholder="رمز عبور را دوباره وارد کنید"
-                                    onChange={(e) => setData('password_confirmation', e.target.value)}
-                                    className="w-full rounded-2xl border border-navy/10 bg-white py-3 pl-12 pr-11 text-left text-sm text-navy outline-none transition-all placeholder:text-navy/30 focus:border-brand-500 focus:ring-4 focus:ring-brand-200/40"
-                                />
-                            </div>
-                            {errors.password_confirmation && (
-                                <p className="mt-1.5 text-xs font-bold text-red-600">{errors.password_confirmation}</p>
                             )}
                         </div>
 

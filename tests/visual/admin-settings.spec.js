@@ -2,15 +2,22 @@ import { test, expect } from '@playwright/test';
 
 // Same credentials as database/seeders/AdminUserSeeder.php — must exist in the preview DB.
 const ADMIN_PHONE = '09330961312';
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? process.env.SEED_ADMIN_PASSWORD ?? 'password';
 
 /**
- * Log in through the dedicated administrator password flow.
+ * Log in through the administrator SMS code flow (dev code is shown in local/testing).
  */
 async function loginAsAdmin(page) {
     await page.goto('/admin/login');
     await page.fill('#phone', ADMIN_PHONE);
-    await page.fill('#password', ADMIN_PASSWORD);
+    await page.getByRole('button', { name: 'دریافت کد ورود' }).click();
+    await page.waitForURL(/step=code/);
+    const banner = page.locator('text=کد تستی');
+    await expect(banner).toBeVisible();
+    const match = (await banner.innerText()).match(/(\d{6})/);
+    if (!match) {
+        throw new Error('کد تستی ورود مدیران در صفحه پیدا نشد.');
+    }
+    await page.fill('#code', match[1]);
     await page.getByRole('button', { name: 'ورود به پنل مدیریت' }).click();
     await page.waitForURL(/\/admin$/);
 }

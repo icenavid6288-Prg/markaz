@@ -25,19 +25,17 @@ class IntegrityFixesTest extends TestCase
         $this->seed(RoleAndPermissionSeeder::class);
     }
 
-    public function test_registration_stores_a_hashed_password_in_the_session(): void
+    public function test_registration_does_not_keep_a_user_password_in_the_session(): void
     {
         $this->post('/register', [
             'name' => 'کاربر امن',
             'phone' => '09123334455',
-            'password' => 'secret-pass',
-            'password_confirmation' => 'secret-pass',
         ])->assertRedirect();
 
         $pending = session('register_data');
         $this->assertIsArray($pending);
-        $this->assertNotSame('secret-pass', $pending['password']);
-        $this->assertTrue(Hash::isHashed($pending['password']));
+        $this->assertArrayNotHasKey('password', $pending);
+        $this->assertSame('09123334455', $pending['phone']);
     }
 
     public function test_new_users_receive_the_customer_role(): void

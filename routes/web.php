@@ -212,6 +212,7 @@ Route::middleware('auth')->group(function () {
 Route::middleware('guest')->group(function () {
     Route::get('/admin/login', [AuthenticatedSessionController::class, 'adminCreate'])->name('admin.login');
     Route::post('/admin/login', [AuthenticatedSessionController::class, 'adminStore'])->name('admin.login.store');
+    Route::post('/admin/login/verify', [AuthenticatedSessionController::class, 'adminVerify'])->name('admin.login.verify.store');
 });
 
 Route::prefix('admin')

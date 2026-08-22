@@ -73,6 +73,14 @@ class User extends Authenticatable
         return $this->hasOne(Coach::class);
     }
 
+    /** @var list<string> */
+    public const ADMIN_PANEL_ROLES = ['super-admin', 'admin', 'editor', 'instructor', 'coach'];
+
+    public function canAccessAdminPanel(): bool
+    {
+        return (bool) $this->is_active && $this->hasAnyRole(self::ADMIN_PANEL_ROLES);
+    }
+
     public function assignDefaultCustomerRole(): void
     {
         if ($this->roles()->exists()) {

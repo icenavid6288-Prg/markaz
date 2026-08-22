@@ -2,9 +2,6 @@ import { Link, useForm } from '@inertiajs/react';
 import BrandLogo from '@/Components/BrandLogo';
 import {
     ArrowLeft,
-    Eye,
-    EyeOff,
-    KeyRound,
     Gift,
     LogIn,
     MessageSquareText,
@@ -37,13 +34,10 @@ export default function AuthModal({
     const [mode, setMode] = useState<'login' | 'register'>(initialMode);
     const [step, setStep] = useState<'phone' | 'code'>('phone');
     const [resendSeconds, setResendSeconds] = useState(0);
-    const [showPassword, setShowPassword] = useState(false);
     const form = useForm({
         name: '',
         phone: sharedState?.phone ?? '',
         code: '',
-        password: '',
-        password_confirmation: '',
         referral_code: '',
         remember: false,
         modal: true,
@@ -78,7 +72,6 @@ export default function AuthModal({
         if (resendSeconds > 0 || form.processing || !form.data.phone) return;
 
         form.setData('code', '');
-        form.setData('password', '');
         form.post(isLogin ? route('login') : route('register'), {
             preserveScroll: true,
             preserveState: true,
@@ -121,9 +114,8 @@ export default function AuthModal({
     const switchMode = (nextMode: 'login' | 'register') => {
         setMode(nextMode);
         setStep('phone');
-        setShowPassword(false);
         form.clearErrors();
-        form.reset('name', 'phone', 'code', 'password', 'password_confirmation', 'referral_code');
+        form.reset('name', 'phone', 'code', 'referral_code');
     };
 
     const copyReferral = () => {
@@ -284,37 +276,6 @@ export default function AuthModal({
                                         {form.data.referral_code && (
                                             <button type="button" onClick={copyReferral} className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-black text-brand-700" tabIndex={-1}>کپی</button>
                                         )}
-                                    </div>
-                                </Field>
-                                <Field label="رمز عبور" id="password" error={form.errors.password}>
-                                    <div className="relative">
-                                        <KeyRound className="input-icon" aria-hidden />
-                                        <input
-                                            id="password"
-                                            type={showPassword ? 'text' : 'password'}
-                                            dir="ltr"
-                                            value={form.data.password}
-                                            autoComplete="new-password"
-                                            placeholder="حداقل ۸ کاراکتر"
-                                            onChange={(event) => form.setData('password', event.target.value)}
-                                            className="auth-modal-input pl-11"
-                                        />
-                                        <PasswordToggle show={showPassword} onClick={() => setShowPassword((value) => !value)} />
-                                    </div>
-                                </Field>
-                                <Field label="تکرار رمز عبور" id="password_confirmation" error={form.errors.password_confirmation}>
-                                    <div className="relative">
-                                        <KeyRound className="input-icon" aria-hidden />
-                                        <input
-                                            id="password_confirmation"
-                                            type={showPassword ? 'text' : 'password'}
-                                            dir="ltr"
-                                            value={form.data.password_confirmation}
-                                            autoComplete="new-password"
-                                            placeholder="تکرار رمز عبور"
-                                            onChange={(event) => form.setData('password_confirmation', event.target.value)}
-                                            className="auth-modal-input"
-                                        />
                                     </div>
                                 </Field>
                             </>
