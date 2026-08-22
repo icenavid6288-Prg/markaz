@@ -250,6 +250,74 @@ class SurveyTest extends TestCase
         ]);
     }
 
+    public function test_guest_cannot_submit_answers_before_otp_when_registration_is_first(): void
+    {
+        $survey = $this->makeSurvey(['status' => 'published', 'settings' => ['registration_after' => 0]]);
+        $questions = $survey->questions()->get();
+
+        $this->post('/survey/'.$survey->share_token.'/answer', [
+            'answers' => [(string) $questions[0]->id => 'والد'],
+        ])->assertRedirect('/survey/'.$survey->share_token.'/register');
+
+        $this->assertGuest();
+        $this->assertDatabaseMissing('users', ['phone' => '09120000003']);
+        $this->assertSame('in_progress', SurveyResponse::first()?->status);
+    }
+
+    public function test_persline_always_shows_one_question_per_page(): void
+    {
+        $survey = $this->makeSurvey([
+            'status' => 'published',
+            'persline_type' => 'ads',
+            'settings' => ['registration_after' => 999, 'display_mode' => 'all'],
+        ]);
+
+        $this->get('/survey/'.$survey->share_token)
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('Survey/Show')
+                ->has('questions', 1)
+                ->where('survey.display_mode', 'paged')
+                ->where('currentIndex', 0)
+                ->where('visibleTotal', 4));
+    }
+
+    public function test_paged_mode_shows_one_question_and_blocks_skipping(): void
+    {
+        $survey = $this->makeSurvey([
+            'status' => 'published',
+            'settings' => ['registration_after' => 999, 'display_mode' => 'paged', 'allow_back_navigation' => true],
+        ]);
+        $questions = $survey->questions()->get();
+
+        $this->get('/survey/'.$survey->share_token)
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('Survey/Show')
+                ->has('questions', 1)
+                ->where('questions.0.title', 'نقش شما چیست؟')
+                ->where('survey.display_mode', 'paged')
+                ->where('currentIndex', 0)
+                ->where('visibleTotal', 4));
+
+        $this->post('/survey/'.$survey->share_token.'/answer', [
+            'question_id' => $questions[2]->id,
+            'answers' => [(string) $questions[2]->id => 'توضیح'],
+        ])->assertSessionHasErrors('answers.'.$questions[2]->id);
+
+        $this->post('/survey/'.$survey->share_token.'/answer', [
+            'question_id' => $questions[0]->id,
+            'answers' => [(string) $questions[0]->id => 'والد'],
+        ])->assertRedirect('/survey/'.$survey->share_token.'?q=1');
+
+        $this->get('/survey/'.$survey->share_token)
+            ->assertInertia(fn ($page) => $page
+                ->has('questions', 1)
+                ->where('questions.0.title', 'آیا ادامه می‌دهید؟')
+                ->where('currentIndex', 1)
+                ->where('completed', false));
+    }
+
     public function test_draft_survey_is_not_publicly_discoverable(): void
     {
         $survey = $this->makeSurvey(['status' => 'draft']);

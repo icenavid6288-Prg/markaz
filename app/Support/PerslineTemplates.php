@@ -19,6 +19,7 @@ final class PerslineTemplates
                 'completion_message' => 'ممنون که برای آینده فرزندتان چند دقیقه وقت گذاشتید. قدم بعدی شما آماده است.',
                 'default_settings' => [
                     'registration_after' => 0,
+                    'display_mode' => 'paged',
                     'show_progress' => true,
                     'randomize_questions' => false,
                     'allow_multiple_responses' => false,
@@ -46,6 +47,7 @@ final class PerslineTemplates
                 'completion_message' => 'ممنون که برای آینده فرزندتان چند دقیقه وقت گذاشتید.\n\nآینده قرار نیست فقط انتخاب شود؛\nباید برای ساختنش آماده شد.\n\nقدم اول: شناخت\nقدم دوم: تجربه\nقدم سوم: انتخاب آگاهانه‌تر',
                 'default_settings' => [
                     'registration_after' => 0,
+                    'display_mode' => 'paged',
                     'show_progress' => true,
                     'randomize_questions' => false,
                     'allow_multiple_responses' => false,
@@ -78,6 +80,7 @@ final class PerslineTemplates
                 'completion_message' => 'از پاسخ‌های دقیق شما ممنونیم.\n\nاین فرم قرار نیست برای فرزندتان یک برچسب یا تشخیص قطعی ایجاد کند.\n\nهدف این است که نقطه شروع روشن‌تر شود:\n\nشناخت → شخصیت → مهارت → فناوری → مسیر → تجربه → آینده',
                 'default_settings' => [
                     'registration_after' => 0,
+                    'display_mode' => 'paged',
                     'show_progress' => true,
                     'randomize_questions' => false,
                     'allow_multiple_responses' => false,

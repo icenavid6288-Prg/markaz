@@ -195,6 +195,7 @@ class PerslineController extends Controller
             'status' => ['required', 'in:draft,published,closed'],
             'settings' => ['nullable', 'array'],
             'settings.registration_after' => ['required', 'integer', 'min:0', 'max:1000'],
+            'settings.display_mode' => ['sometimes', 'in:all,paged'],
             'settings.show_progress' => ['sometimes', 'boolean'],
             'settings.randomize_questions' => ['sometimes', 'boolean'],
             'settings.allow_multiple_responses' => ['sometimes', 'boolean'],
@@ -231,6 +232,7 @@ class PerslineController extends Controller
             ['summary_intro' => '', 'summary_outro' => ''],
             $template['default_settings'],
             $data['settings'] ?? [],
+            ['display_mode' => 'paged'],
         );
         $data['questions'] = $questions;
         unset($data['file'], $data['poster_file'], $data['remove_poster']);
@@ -455,6 +457,7 @@ class PerslineController extends Controller
             'status' => $survey->status,
             'settings' => array_merge([
                 'registration_after' => 0,
+                'display_mode' => 'paged',
                 'show_progress' => true,
                 'randomize_questions' => false,
                 'allow_multiple_responses' => false,

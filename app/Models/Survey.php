@@ -67,6 +67,15 @@ class Survey extends Model
         return max(0, (int) ($this->settings['registration_after'] ?? 3));
     }
 
+    public function displayMode(): string
+    {
+        if (filled($this->persline_type)) {
+            return 'paged';
+        }
+
+        return $this->setting('display_mode') === 'paged' ? 'paged' : 'all';
+    }
+
     public function isClosed(): bool
     {
         if ($this->status === 'closed') {
