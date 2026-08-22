@@ -669,6 +669,7 @@ $hasRequirements = ! in_array(false, array_column($requirements, 'ok'), true);
             <h2>نصب با موفقیت انجام شد</h2>
             <p>فایل قفل نصب ایجاد شده است و این صفحه دیگر امکان اجرای دوباره ندارد. اکنون می‌توانید وارد سایت شوید و تنظیمات پیامک، پرداخت و محتوای سایت را از پنل مدیریت کامل کنید.</p>
             <p><a href="<?= h(rtrim((string) ($form['app_url'] ?? ''), '/')) ?>" style="color:var(--brand-dark);font-weight:800">ورود به سایت</a></p>
+            <p>اگر صفحه اصلی خطای ۵۰۰ داد، اول <a href="boot-check.php" style="color:var(--brand-dark);font-weight:800">صفحه بررسی بوت</a> را باز کنید و متن خطا را بخوانید. پوشه‌های <code>storage</code> و <code>bootstrap/cache</code> باید مجوز ۷۷۵ داشته باشند.</p>
             <p class="hint">برای امنیت بیشتر، پس از اطمینان از کارکرد سایت، فایل <code>public/install.php</code> را از هاست حذف کنید. اگر خواستید دیتابیس را عوض کنید (مثلاً از SQLite به MySQL)، فایل‌های <code>storage/app/installed.lock</code> و <code>.env</code> را از هاست حذف کنید و دوباره <code>install.php</code> را باز کنید.</p>
         </section>
         <section class="card">

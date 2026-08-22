@@ -43,8 +43,30 @@ class SurveyController extends Controller
         }
 
         $registrationRequired = ! $isRegistered && $registrationAfter > 0 && $registrationAfter < $questions->count();
-        $visibleQuestions = $registrationRequired ? $questions->take($registrationAfter) : $questions;
+        $visiblePool = $registrationRequired ? $questions->take($registrationAfter)->values() : $questions->values();
         $answers = $response->answers ?? [];
+        $paged = $survey->displayMode() === 'paged' && $response->status !== 'completed';
+        $allowBack = (bool) $survey->setting('allow_back_navigation', true);
+        $currentIndex = 0;
+
+        if ($paged && $visiblePool->isNotEmpty()) {
+            $firstUnanswered = $visiblePool->values()->search(function (SurveyQuestion $question) use ($answers) {
+                return $this->isEmptyAnswer($answers[(string) $question->id] ?? null);
+            });
+            $defaultIndex = $firstUnanswered === false ? max(0, $visiblePool->count() - 1) : (int) $firstUnanswered;
+            $requested = $request->query('q');
+            $currentIndex = is_numeric($requested) ? (int) $requested : $defaultIndex;
+            if (! $allowBack) {
+                $currentIndex = $defaultIndex;
+            }
+            $currentIndex = max(0, min($currentIndex, $visiblePool->count() - 1));
+            if ($currentIndex > $defaultIndex) {
+                $currentIndex = $defaultIndex;
+            }
+            $visibleQuestions = collect([$visiblePool[$currentIndex]]);
+        } else {
+            $visibleQuestions = $visiblePool;
+        }
 
         return Inertia::render('Survey/Show', [
             'survey' => [
@@ -53,9 +75,10 @@ class SurveyController extends Controller
                 'welcome_message' => $survey->welcome_message,
                 'completion_message' => $survey->completion_message ?: 'از وقتی که برای پاسخ‌گویی گذاشتید سپاسگزاریم.',
                 'show_progress' => (bool) $survey->setting('show_progress', true),
-                'allow_back_navigation' => (bool) $survey->setting('allow_back_navigation', true),
+                'allow_back_navigation' => $allowBack,
                 'completion_redirect' => $this->safeRedirect((string) $survey->setting('completion_redirect', '')),
                 'poster_url' => $survey->posterUrl(),
+                'display_mode' => $paged ? 'paged' : 'all',
             ],
             'questions' => $visibleQuestions->map(fn (SurveyQuestion $q) => $this->presentQuestion($q))->values()->all(),
             'answers' => collect($answers)->filter(fn ($value, $key) => $visibleQuestions->pluck('id')->contains((int) $key))->all(),
@@ -64,6 +87,8 @@ class SurveyController extends Controller
             'registrationAfter' => $registrationAfter,
             'completed' => $response->status === 'completed',
             'totalQuestions' => $questions->count(),
+            'currentIndex' => $currentIndex,
+            'visibleTotal' => $visiblePool->count(),
         ]);
     }
 
@@ -74,16 +99,38 @@ class SurveyController extends Controller
         $questions = $this->orderedQuestions($survey, $response);
         $isRegistered = $request->user() !== null || $response->user_id !== null;
         $registrationAfter = $survey->registrationAfter();
-        $visibleIds = (! $isRegistered && $registrationAfter > 0 && $registrationAfter < $questions->count())
-            ? $questions->take($registrationAfter)->pluck('id')->all()
-            : $questions->pluck('id')->all();
 
-        // Accept all answers at once: payload is answers[question_id] = value.
+        if ($registrationAfter === 0 && ! $request->user() && ! $response->user_id) {
+            return redirect()->route('survey.register', $survey);
+        }
+
+        $registrationRequired = ! $isRegistered && $registrationAfter > 0 && $registrationAfter < $questions->count();
+        $visiblePool = $registrationRequired ? $questions->take($registrationAfter)->values() : $questions->values();
+        $paged = $survey->displayMode() === 'paged';
         $rawAnswers = $request->input('answers', []);
         $answers = $response->answers ?? [];
         $errors = [];
 
-        foreach ($visibleIds as $qid) {
+        if ($paged) {
+            $qid = (int) ($request->input('question_id') ?: array_key_first(is_array($rawAnswers) ? $rawAnswers : []));
+            $allowedIds = $visiblePool->pluck('id')->all();
+            if (! in_array($qid, $allowedIds, true)) {
+                return back()->withErrors(['answers.'.$qid => 'این سؤال در این مرحله قابل پاسخ نیست.']);
+            }
+            $currentIndex = max(0, $visiblePool->search(fn (SurveyQuestion $question) => $question->id === $qid));
+            $firstUnanswered = $visiblePool->values()->search(function (SurveyQuestion $question) use ($answers) {
+                return $this->isEmptyAnswer($answers[(string) $question->id] ?? null);
+            });
+            $maxAllowed = $firstUnanswered === false ? $visiblePool->count() - 1 : (int) $firstUnanswered;
+            if ($currentIndex > $maxAllowed) {
+                return back()->withErrors(['answers.'.$qid => 'اول باید سؤال‌های قبلی را پاسخ دهید.']);
+            }
+            $targetIds = [$qid];
+        } else {
+            $targetIds = $visiblePool->pluck('id')->all();
+        }
+
+        foreach ($targetIds as $qid) {
             $value = $rawAnswers[$qid] ?? $rawAnswers[(string) $qid] ?? null;
             /** @var SurveyQuestion|null $question */
             $question = $questions->firstWhere('id', $qid);
@@ -118,15 +165,29 @@ class SurveyController extends Controller
             'user_agent' => Str::limit((string) $request->userAgent(), 1000),
         ])->save();
 
-        // After answering the visible questions, check if registration is needed
-        // before the survey can be marked as completed.
         $needsRegistration = ! $request->user() && ! $response->user_id
             && $registrationAfter > 0 && $registrationAfter < $questions->count();
-        if ($needsRegistration) {
+        $gateAnswered = $questions->take($registrationAfter)->every(function (SurveyQuestion $question) use ($answers) {
+            return ! $question->is_required || ! $this->isEmptyAnswer($answers[(string) $question->id] ?? null);
+        });
+        if ($needsRegistration && $gateAnswered) {
             return redirect()->route('survey.register', $survey);
         }
 
-        if ($response->status !== 'completed') {
+        $poolComplete = $visiblePool->every(function (SurveyQuestion $question) use ($answers) {
+            return ! $question->is_required || ! $this->isEmptyAnswer($answers[(string) $question->id] ?? null);
+        });
+
+        if ($paged && ! ($poolComplete && ! $needsRegistration)) {
+            $nextUnanswered = $visiblePool->values()->search(function (SurveyQuestion $question) use ($answers) {
+                return $this->isEmptyAnswer($answers[(string) $question->id] ?? null);
+            });
+            $nextIndex = $nextUnanswered === false ? max(0, $visiblePool->count() - 1) : (int) $nextUnanswered;
+
+            return redirect()->route('survey.show', ['survey' => $survey, 'q' => $nextIndex]);
+        }
+
+        if ($poolComplete && ! $needsRegistration && $response->status !== 'completed') {
             $response->update(['status' => 'completed', 'completed_at' => now()]);
             app(SurveyLeadLinker::class)->link($response);
         }

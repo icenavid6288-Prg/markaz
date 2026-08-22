@@ -147,6 +147,7 @@ class SurveyController extends Controller
             'eitaa_scheduled_at' => ['nullable', 'date'],
             'settings' => ['nullable', 'array'],
             'settings.registration_after' => ['required', 'integer', 'min:0', 'max:1000'],
+            'settings.display_mode' => ['sometimes', 'in:all,paged'],
             'settings.show_progress' => ['sometimes', 'boolean'],
             'settings.randomize_questions' => ['sometimes', 'boolean'],
             'settings.allow_multiple_responses' => ['sometimes', 'boolean'],
@@ -168,6 +169,7 @@ class SurveyController extends Controller
 
         $data['settings'] = array_merge([
             'registration_after' => 3,
+            'display_mode' => 'all',
             'show_progress' => true,
             'randomize_questions' => false,
             'allow_multiple_responses' => false,
@@ -238,6 +240,7 @@ class SurveyController extends Controller
             'status' => $survey->status,
             'settings' => array_merge([
                 'registration_after' => 3,
+                'display_mode' => 'all',
                 'show_progress' => true,
                 'randomize_questions' => false,
                 'allow_multiple_responses' => false,
