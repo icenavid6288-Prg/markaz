@@ -36,7 +36,7 @@ class AuthenticatedSessionController extends Controller
         return Inertia::render('Auth/Login', $this->loginProps([
             'step' => $showCodeStep ? 'code' : 'phone',
             'phone' => $showCodeStep ? $phone : '',
-            'dev_code' => $showCodeStep && app()->environment(['local', 'testing'])
+            'dev_code' => $showCodeStep && $this->otpCodeEnabled()
                 ? $request->session()->get('login_dev_code')
                 : null,
         ]));
@@ -79,7 +79,7 @@ class AuthenticatedSessionController extends Controller
             'status' => session('status'),
             'step' => $showCodeStep ? 'code' : 'phone',
             'phone' => $showCodeStep ? $phone : '',
-            'dev_code' => $showCodeStep && app()->environment(['local', 'testing'])
+            'dev_code' => $showCodeStep && $this->otpCodeEnabled()
                 ? $request->session()->get('admin_login_dev_code')
                 : null,
         ]);
@@ -142,15 +142,21 @@ class AuthenticatedSessionController extends Controller
                 'error' => $exception->getMessage(),
             ]);
 
+            if ($this->otpCodeEnabled()) {
+                $request->session()->put('admin_login_phone', $phone);
+                $request->session()->flash('admin_login_dev_code', $code);
+
+                return redirect()->route('admin.login', ['step' => 'code'])
+                    ->with('status', 'ارسال پیامک در دسترس نبود؛ کد ورود روی صفحه نمایش داده شد.');
+            }
+
             return back()->withErrors([
-                'phone' => app()->environment('production')
-                    ? 'ارسال کد ورود ناموفق بود. لطفاً کمی بعد دوباره تلاش کنید.'
-                    : $exception->getMessage(),
+                'phone' => 'ارسال کد ورود ناموفق بود. لطفاً کمی بعد دوباره تلاش کنید.',
             ])->withInput();
         }
 
         $request->session()->put('admin_login_phone', $phone);
-        if (app()->environment(['local', 'testing'])) {
+        if ($this->otpCodeEnabled()) {
             $request->session()->flash('admin_login_dev_code', $code);
         }
 
@@ -246,7 +252,7 @@ class AuthenticatedSessionController extends Controller
         return Inertia::render('Auth/Login', $this->loginProps([
             'step' => 'code',
             'phone' => $phone,
-            'dev_code' => app()->environment(['local', 'testing']) ? $request->session()->get('login_dev_code') : null,
+            'dev_code' => $this->otpCodeEnabled() ? $request->session()->get('login_dev_code') : null,
         ]));
     }
 
@@ -316,9 +322,32 @@ class AuthenticatedSessionController extends Controller
                 'phone_hash' => hash('sha256', $phone),
                 'error' => $exception->getMessage(),
             ]);
-            $message = app()->environment('production')
-                ? 'ارسال کد ورود ناموفق بود. لطفاً کمی بعد دوباره تلاش کنید.'
-                : $exception->getMessage();
+
+            // In debug/non-production environments an SMS provider is often not
+            // available (or not configured). Surface the generated code instead of
+            // deadlocking login, so development and preview keep working.
+            if ($this->otpCodeEnabled()) {
+                $request->session()->put('login_phone', $phone);
+                $request->session()->flash('login_dev_code', $code);
+
+                if ($isModal) {
+                    $request->session()->flash('auth_modal', [
+                        'mode' => 'login',
+                        'step' => 'code',
+                        'phone' => $phone,
+                        'dev_code' => $code,
+                        'status' => 'ارسال پیامک در دسترس نبود؛ کد ورود روی صفحه نمایش داده شد.',
+                    ]);
+
+                    return redirect()->to($this->modalReturnUrl($request))
+                        ->with('status', 'ارسال پیامک در دسترس نبود؛ کد ورود روی صفحه نمایش داده شد.');
+                }
+
+                return redirect()->route('login', ['step' => 'code'])
+                    ->with('status', 'ارسال پیامک در دسترس نبود؛ کد ورود روی صفحه نمایش داده شد.');
+            }
+
+            $message = 'ارسال کد ورود ناموفق بود. لطفاً کمی بعد دوباره تلاش کنید.';
 
             return $isModal
                 ? redirect()->to($this->modalReturnUrl($request))->withErrors(['phone' => $message])->withInput()
@@ -326,7 +355,7 @@ class AuthenticatedSessionController extends Controller
         }
 
         $request->session()->put('login_phone', $phone);
-        if (app()->environment(['local', 'testing'])) {
+        if ($this->otpCodeEnabled()) {
             $request->session()->flash('login_dev_code', $code);
         }
 
@@ -335,7 +364,7 @@ class AuthenticatedSessionController extends Controller
                 'mode' => 'login',
                 'step' => 'code',
                 'phone' => $phone,
-                'dev_code' => app()->environment(['local', 'testing']) ? $code : null,
+                'dev_code' => $this->otpCodeEnabled() ? $code : null,
                 'status' => 'کد ورود به شماره شما پیامک شد.',
             ];
 
@@ -451,6 +480,16 @@ class AuthenticatedSessionController extends Controller
         ];
     }
 
+    /**
+     * Whether the generated OTP code should be surfaced on screen instead of
+     * relying on SMS delivery. Enabled in every non-production environment so
+     * development and preview keep working even without a configured SMS panel.
+     */
+    private function otpCodeEnabled(): bool
+    {
+        return ! app()->environment('production');
+    }
+
     private function modalReturnUrl(Request $request): string
     {
         $referer = $request->session()->get('auth_modal_return_url')
@@ -471,7 +510,7 @@ class AuthenticatedSessionController extends Controller
             'mode' => 'login',
             'step' => 'code',
             'phone' => $phone,
-            'dev_code' => app()->environment(['local', 'testing'])
+            'dev_code' => $this->otpCodeEnabled()
                 ? $request->session()->get('login_dev_code')
                 : null,
         ]);

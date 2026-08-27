@@ -2,6 +2,7 @@
 
 use App\Models\MarketingCampaign;
 use App\Models\Order;
+use App\Models\Product;
 use App\Models\Survey;
 use App\Services\Commerce\OrderFulfillment;
 use App\Services\Eitaa\EitaaPublisher;

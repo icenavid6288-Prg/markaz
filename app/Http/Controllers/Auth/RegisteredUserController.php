@@ -39,7 +39,7 @@ class RegisteredUserController extends Controller
             'status' => $request->session()->get('status'),
             'step' => $showCodeStep ? 'code' : 'form',
             'phone' => $showCodeStep ? $phone : '',
-            'dev_code' => $showCodeStep && app()->environment(['local', 'testing'])
+            'dev_code' => $showCodeStep && $this->otpCodeEnabled()
                 ? $request->session()->get('register_dev_code')
                 : null,
         ]);
@@ -94,14 +94,19 @@ class RegisteredUserController extends Controller
             ]
         );
 
+        $smsFailed = false;
+
         try {
             $sms->sendOtp($phone, $code);
         } catch (Throwable $exception) {
             report($exception);
+            $smsFailed = true;
 
-            throw ValidationException::withMessages([
-                'phone' => 'ارسال کد تأیید ناموفق بود. لطفاً کمی بعد دوباره تلاش کنید.',
-            ]);
+            if (! $this->otpCodeEnabled()) {
+                throw ValidationException::withMessages([
+                    'phone' => 'ارسال کد تأیید ناموفق بود. لطفاً کمی بعد دوباره تلاش کنید.',
+                ]);
+            }
         }
 
         $request->session()->put('register_phone', $phone);
@@ -114,12 +119,14 @@ class RegisteredUserController extends Controller
             ]);
         }
 
-        if (app()->environment(['local', 'testing'])) {
+        if ($this->otpCodeEnabled()) {
             $request->session()->flash('register_dev_code', $code);
         }
 
         $isModal = $request->boolean('modal');
-        $status = 'کد تأیید به شماره شما پیامک شد؛ با وارد کردن آن، ثبت‌نام تکمیل می‌شود.';
+        $status = $this->otpCodeEnabled() && $smsFailed
+            ? 'ارسال پیامک در دسترس نبود؛ کد تأیید روی صفحه نمایش داده شد.'
+            : 'کد تأیید به شماره شما پیامک شد؛ با وارد کردن آن، ثبت‌نام تکمیل می‌شود.';
 
         if ($isModal) {
             $request->session()->put('auth_modal_return_url', $this->modalReturnUrl($request));
@@ -127,7 +134,7 @@ class RegisteredUserController extends Controller
                 'mode' => 'register',
                 'step' => 'code',
                 'phone' => $phone,
-                'dev_code' => app()->environment(['local', 'testing']) ? $code : null,
+                'dev_code' => $this->otpCodeEnabled() ? $code : null,
                 'status' => $status,
             ]);
 
@@ -233,6 +240,16 @@ class RegisteredUserController extends Controller
             : redirect()->intended(route('dashboard', absolute: false));
     }
 
+    /**
+     * Whether the generated OTP code should be surfaced on screen instead of
+     * relying on SMS delivery. Enabled in every non-production environment so
+     * development and preview keep working even without a configured SMS panel.
+     */
+    private function otpCodeEnabled(): bool
+    {
+        return ! app()->environment('production');
+    }
+
     private function modalReturnUrl(Request $request): string
     {
         $referer = $request->session()->get('auth_modal_return_url')
@@ -253,7 +270,7 @@ class RegisteredUserController extends Controller
             'mode' => 'register',
             'step' => 'code',
             'phone' => $phone,
-            'dev_code' => app()->environment(['local', 'testing']) ? $request->session()->get('register_dev_code') : null,
+            'dev_code' => $this->otpCodeEnabled() ? $request->session()->get('register_dev_code') : null,
         ]);
 
         return redirect()->to($returnUrl)->withErrors([$field => $message]);

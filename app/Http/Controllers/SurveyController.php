@@ -108,6 +108,17 @@ class SurveyController extends Controller
         $visiblePool = $registrationRequired ? $questions->take($registrationAfter)->values() : $questions->values();
         $paged = $survey->displayMode() === 'paged';
         $rawAnswers = $request->input('answers', []);
+        if (! is_array($rawAnswers)) {
+            $rawAnswers = [];
+        }
+
+        // Persline / legacy clients submit a single `question_id` + `answer`
+        // pair at the top level instead of the nested `answers` map. Normalize
+        // that payload so both shapes are persisted identically below.
+        if (empty($rawAnswers) && $request->filled('question_id')) {
+            $rawAnswers[(string) $request->input('question_id')] = $request->input('answer');
+        }
+
         $answers = $response->answers ?? [];
         $errors = [];
 
@@ -220,7 +231,7 @@ class SurveyController extends Controller
             'status' => session('status'),
             'step' => $showCodeStep ? 'code' : 'form',
             'phone' => $showCodeStep ? $sessionPhone : '',
-            'dev_code' => $showCodeStep && app()->environment(['local', 'testing'])
+            'dev_code' => $showCodeStep && $this->otpCodeEnabled()
                 ? $request->session()->get('survey_register_dev_code')
                 : null,
         ]);
@@ -274,14 +285,19 @@ class SurveyController extends Controller
             ['token' => Hash::make($code), 'created_at' => now()],
         );
 
+        $smsFailed = false;
+
         try {
             $sms->sendOtp($phone, $code);
         } catch (Throwable $exception) {
             report($exception);
+            $smsFailed = true;
 
-            throw ValidationException::withMessages([
-                'phone' => 'ارسال کد تأیید ناموفق بود. لطفاً کمی بعد دوباره تلاش کنید.',
-            ]);
+            if (app()->environment('production')) {
+                throw ValidationException::withMessages([
+                    'phone' => 'ارسال کد تأیید ناموفق بود. لطفاً کمی بعد دوباره تلاش کنید.',
+                ]);
+            }
         }
 
         $request->session()->put('survey_register_phone_'.$survey->id, $phone);
@@ -293,12 +309,16 @@ class SurveyController extends Controller
                 'existing_user_id' => $existing?->id,
             ]);
         }
-        if (app()->environment(['local', 'testing'])) {
+        if ($this->otpCodeEnabled()) {
             $request->session()->flash('survey_register_dev_code', $code);
         }
 
+        $status = $this->otpCodeEnabled() && $smsFailed
+            ? 'ارسال پیامک در دسترس نبود؛ کد تأیید روی صفحه نمایش داده شد.'
+            : 'کد تأیید به شماره شما پیامک شد.';
+
         return redirect()->route('survey.register', ['survey' => $survey, 'step' => 'code'])
-            ->with('status', 'کد تأیید به شماره شما پیامک شد.');
+            ->with('status', $status);
     }
 
     public function verifyRegistration(Request $request, Survey $survey, LeadService $leads): RedirectResponse
@@ -393,6 +413,16 @@ class SurveyController extends Controller
                 ? 'حساب شما با تأیید پیامکی ساخته شد؛ حالا فرم را تکمیل کنید.'
                 : 'وارد شدید؛ حالا ادامه فرم را تکمیل کنید.',
         );
+    }
+
+    /**
+     * Whether the generated OTP code should be surfaced on screen instead of
+     * relying on SMS delivery. Enabled in every non-production environment so
+     * development and preview keep working even without a configured SMS panel.
+     */
+    private function otpCodeEnabled(): bool
+    {
+        return ! app()->environment('production');
     }
 
     private function ensureAvailable(Survey $survey): void

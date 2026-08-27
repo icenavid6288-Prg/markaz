@@ -287,8 +287,36 @@ class AuthenticationTest extends TestCase
         $this->assertGuest();
     }
 
-    public function test_login_shows_a_friendly_error_when_sms_sending_fails(): void
+    public function test_login_falls_back_to_on_screen_code_when_sms_sending_fails_outside_production(): void
     {
+        $user = User::factory()->create();
+
+        Setting::set('sms_driver', 'melipayamak', 'sms');
+        Setting::set('sms_enabled', '1', 'sms');
+        Setting::setSecret('sms_melipayamak_username', 'panel-user', 'sms');
+        Setting::setSecret('sms_melipayamak_password', 'panel-pass', 'sms');
+        Setting::set('sms_melipayamak_sender', '10002040', 'sms');
+        Http::fake([
+            'rest.payamak-panel.com/*' => Http::response('{"Value":-110,"RetStatus":-110,"StrRetStatus":"Not Ok"}'),
+        ]);
+
+        $response = $this->from('/login')->post('/login', [
+            'phone' => $user->phone,
+        ]);
+
+        // In a non-production environment login must not deadlock when the SMS
+        // panel is unavailable: the generated code is surfaced on screen instead.
+        $response->assertRedirect(route('login', ['step' => 'code'], absolute: false));
+        $response->assertSessionHasNoErrors();
+        $this->assertSame($user->phone, session('login_phone'));
+        $this->assertNotNull(session('login_dev_code'));
+        $this->assertGuest();
+        $this->assertDatabaseHas('phone_login_tokens', ['phone' => $user->phone]);
+    }
+
+    public function test_login_shows_a_friendly_error_when_sms_sending_fails_in_production(): void
+    {
+        Config::set('app.env', 'production');
         $user = User::factory()->create();
 
         Setting::set('sms_driver', 'melipayamak', 'sms');
@@ -306,6 +334,7 @@ class AuthenticationTest extends TestCase
 
         $response->assertRedirect('/login');
         $response->assertSessionHasErrors('phone');
+        $this->assertNull(session('login_dev_code'));
         $this->assertGuest();
         $this->assertDatabaseHas('phone_login_tokens', ['phone' => $user->phone]);
     }

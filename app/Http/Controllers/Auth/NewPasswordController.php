@@ -24,7 +24,7 @@ class NewPasswordController extends Controller
     {
         return Inertia::render('Auth/ResetPassword', [
             'phone' => session('reset_phone', ''),
-            'dev_code' => app()->environment(['local', 'testing']) ? session('dev_code') : null,
+            'dev_code' => ! app()->environment('production') ? session('dev_code') : null,
             'status' => session('status'),
         ]);
     }
