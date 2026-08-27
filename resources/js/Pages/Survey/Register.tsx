@@ -94,11 +94,7 @@ export default function SurveyRegister({
                     {!isCodeStep && (
                         <div className="mb-6 flex items-center gap-3 rounded-xl border border-brand-100 bg-brand-50 p-4">
                             <CheckCircle2 className="size-5 shrink-0 text-brand-600" />
-<<<<<<< Updated upstream
-                            <p className="text-xs font-bold leading-6 text-brand-900">رمز عبور لازم نیست. اگر قبلاً حساب دارید، همان شماره را بزنید تا با کد پیامکی وارد شوید.</p>
-=======
                             <p className="text-xs font-bold leading-6 text-brand-900">با تأیید شماره موبایل، بلافاصله به فرم برمی‌گردید.</p>
->>>>>>> Stashed changes
                         </div>
                     )}
                     <form onSubmit={submit} className="flex flex-col gap-5">

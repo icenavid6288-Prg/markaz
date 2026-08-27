@@ -83,10 +83,6 @@ class PerslineLeadLinkingTest extends TestCase
         $this->post("/survey/{$survey->share_token}/register", [
             'name' => 'ثبت‌نامی',
             'phone' => '09123456787',
-<<<<<<< Updated upstream
-        ])->assertRedirect(route('survey.register', ['survey' => $survey, 'step' => 'code']));
-
-=======
             // Legacy clients may still send these fields; they must be ignored.
             'password' => 'legacy-password',
             'password_confirmation' => 'different-legacy-password',
@@ -94,7 +90,6 @@ class PerslineLeadLinkingTest extends TestCase
 
         $this->assertArrayNotHasKey('password', (array) session('survey_register_data_'.$survey->id));
 
->>>>>>> Stashed changes
         $code = session('survey_register_dev_code');
         $this->assertNotNull($code);
         $this->post("/survey/{$survey->share_token}/register/verify", [

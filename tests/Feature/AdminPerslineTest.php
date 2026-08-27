@@ -227,8 +227,6 @@ class AdminPerslineTest extends TestCase
         $this->assertStringContainsString('۱۵–۱۶', $csv);
     }
 
-<<<<<<< Updated upstream
-=======
     public function test_legacy_answer_ids_are_mapped_to_current_questions_in_results(): void
     {
         $admin = User::factory()->create();
@@ -253,7 +251,7 @@ class AdminPerslineTest extends TestCase
                 ->where('responses.data.0.answers.0.value', '۱۵–۱۶'));
     }
 
->>>>>>> Stashed changes
+
     public function test_admin_can_attach_a_poster_to_the_form(): void
     {
         $admin = User::factory()->create();

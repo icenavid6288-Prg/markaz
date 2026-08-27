@@ -47,11 +47,6 @@ class SurveyTest extends TestCase
         $this->registerOnSurvey($survey, [
             'name' => 'کاربر تست',
             'phone' => '09120000002',
-<<<<<<< Updated upstream
-            'password' => 'password123',
-            'password_confirmation' => 'password123',
-=======
->>>>>>> Stashed changes
         ]);
 
         $this->assertAuthenticated();
@@ -195,11 +190,6 @@ class SurveyTest extends TestCase
         $this->registerOnSurvey($survey, [
             'name' => 'کاربر نظرسنجی',
             'phone' => '09120000001',
-<<<<<<< Updated upstream
-            'password' => 'password123',
-            'password_confirmation' => 'password123',
-=======
->>>>>>> Stashed changes
         ]);
 
         $this->assertAuthenticated();
@@ -308,8 +298,6 @@ class SurveyTest extends TestCase
                 ->where('visibleTotal', 4));
     }
 
-<<<<<<< Updated upstream
-=======
     public function test_zero_registration_after_is_preserved_as_registration_before_questions(): void
     {
         $admin = User::factory()->create();
@@ -331,7 +319,7 @@ class SurveyTest extends TestCase
             ->assertRedirect('/survey/'.$survey->share_token.'/register');
     }
 
->>>>>>> Stashed changes
+
     public function test_paged_mode_shows_one_question_and_blocks_skipping(): void
     {
         $survey = $this->makeSurvey([
@@ -724,11 +712,7 @@ class SurveyTest extends TestCase
         return $codepoints;
     }
 
-<<<<<<< Updated upstream
-    /** @param array{name: string, phone: string, password: string, password_confirmation: string} $payload */
-=======
     /** @param array{name: string, phone: string} $payload */
->>>>>>> Stashed changes
     private function registerOnSurvey(Survey $survey, array $payload): void
     {
         $this->post('/survey/'.$survey->share_token.'/register', $payload)

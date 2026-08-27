@@ -6,11 +6,7 @@ import { Button } from '@/Components/ui/Button';
 import type { PageProps } from '@/types';
 
 type QuestionSettings = Record<string, string | number | boolean | null>;
-<<<<<<< Updated upstream
-interface Question { type: string; title: string; description: string | null; options: string[]; settings: QuestionSettings; is_required: boolean; include_in_summary: boolean; }
-=======
 interface Question { id?: number; type: string; title: string; description: string | null; options: string[]; settings: QuestionSettings; is_required: boolean; include_in_summary: boolean; }
->>>>>>> Stashed changes
 interface Settings { registration_after: number; display_mode: 'all' | 'paged'; show_progress: boolean; randomize_questions: boolean; allow_multiple_responses: boolean; allow_back_navigation: boolean; completion_redirect: string; summary_intro: string; summary_outro: string; }
 interface Template { key: string; label: string; short_label: string; description: string; title: string; intro: string; welcome_message: string; completion_message: string; default_settings: Settings; questions: Question[]; }
 interface PerslineForm { id: number; title: string; persline_type: string; share_token: string; share_url: string; description: string | null; welcome_message: string | null; completion_message: string | null; status: 'draft' | 'published' | 'closed'; settings: Settings; questions: Question[]; questions_count: number; responses_count: number; completed_responses_count: number; eitaa_scheduled_at: string | null; eitaa_published_at: string | null; eitaa_summary_sent_at: string | null; poster_url?: string | null; }
