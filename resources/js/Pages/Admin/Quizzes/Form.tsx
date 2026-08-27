@@ -1,0 +1,50 @@
+import { Link, useForm, usePage } from '@inertiajs/react';
+import { ArrowRight, GripVertical, ListChecks, Plus, Save, Trash2 } from 'lucide-react';
+import { type FormEvent, type ReactNode } from 'react';
+import AdminLayout from '@/Layouts/AdminLayout';
+import { Button } from '@/Components/ui/Button';
+import type { PageProps } from '@/types';
+
+interface Question { type: string; question: string; options: string[]; correct_answer: string[]; score: number; }
+interface Quiz { id: number; title: string; description: string | null; lesson_id: number; passing_score: number; time_limit_minutes: number | null; questions: Question[]; }
+const labels: Record<string, string> = { single: 'یک گزینه‌ای', multiple: 'چند گزینه‌ای', true_false: 'درست / نادرست' };
+const freshQuestion = (): Question => ({ type: 'single', question: '', options: ['', ''], correct_answer: ['0'], score: 1 });
+
+export default function QuizForm() {
+    const { quiz, lessons, questionTypes } = usePage<PageProps & { quiz: Quiz | null; lessons: Array<{ id: number; label: string }>; questionTypes: Record<string, string> }>().props;
+    const isEdit = Boolean(quiz);
+    const form = useForm({
+        title: quiz?.title ?? '', description: quiz?.description ?? '', lesson_id: quiz?.lesson_id ?? lessons[0]?.id ?? '',
+        passing_score: quiz?.passing_score ?? 70, time_limit_minutes: quiz?.time_limit_minutes ?? '',
+        questions: quiz?.questions?.length ? quiz.questions.map((q) => ({ ...q, options: q.options.length ? q.options : q.type === 'true_false' ? ['درست', 'نادرست'] : ['', ''], correct_answer: q.correct_answer?.length ? q.correct_answer : ['0'], score: q.score || 1 })) : [freshQuestion()],
+    });
+    const input = 'w-full rounded-xl border border-navy/10 bg-white px-4 py-3 text-sm text-navy outline-none transition-colors focus:border-brand-500 focus:ring-2 focus:ring-brand-200';
+    const updateQuestion = (index: number, patch: Partial<Question>) => form.setData('questions', form.data.questions.map((question, i) => i === index ? { ...question, ...patch } : question));
+    const changeType = (index: number, type: string) => {
+        updateQuestion(index, type === 'true_false' ? { type, options: ['درست', 'نادرست'], correct_answer: ['0'] } : { type, options: type === 'single' ? ['', ''] : ['', '', ''], correct_answer: [] });
+    };
+    const toggleCorrect = (index: number, optionIndex: string) => {
+        const question = form.data.questions[index];
+        if (question.type === 'multiple') {
+            const next = question.correct_answer.includes(optionIndex) ? question.correct_answer.filter((v) => v !== optionIndex) : [...question.correct_answer, optionIndex];
+            updateQuestion(index, { correct_answer: next });
+        } else {
+            updateQuestion(index, { correct_answer: [optionIndex] });
+        }
+    };
+    const submit = (event: FormEvent) => { event.preventDefault(); isEdit ? form.put(`/admin/quizzes/${quiz?.id}`) : form.post('/admin/quizzes'); };
+
+    return <form onSubmit={submit} className="flex flex-col gap-6">
+        <div className="flex flex-wrap items-center justify-between gap-3"><Link href="/admin/quizzes" className="inline-flex items-center gap-2 text-sm font-bold text-navy/50 hover:text-brand-700"><ArrowRight className="size-4" /> بازگشت به آزمون‌ها</Link><Button type="submit" loading={form.processing}><Save className="size-4" /> {isEdit ? 'ذخیره آزمون' : 'ساخت آزمون'}</Button></div>
+        {Object.keys(form.errors).length > 0 && <div className="rounded-2xl bg-red-50 p-4 text-sm font-bold text-red-700 ring-1 ring-red-200">لطفاً خطاهای فرم و سؤال‌ها را بررسی کنید.</div>}
+        <section className="relative overflow-hidden rounded-[2rem] bg-deep-gradient p-6 text-white shadow-lift md:p-8"><div className="pointer-events-none absolute -left-16 -top-20 size-64 rounded-full bg-brand-400/20 blur-3xl" /><div className="relative"><div className="flex items-center gap-2 text-xs font-black text-brand-200"><ListChecks className="size-4" /> سازنده آزمون</div><h1 className="mt-3 text-2xl font-black md:text-3xl">{isEdit ? 'ویرایش آزمون' : 'ساخت آزمون درس'}</h1><p className="mt-2 max-w-2xl text-sm leading-7 text-white/65">آزمون به یک درس متصل می‌شود. پاسخ صحیح فقط سمت سرور نگهداری می‌شود و نمره‌دهی هنگام ثبت تلاش انجام می‌شود.</p></div></section>
+        <section className="rounded-2xl bg-white p-6 shadow-soft ring-1 ring-navy/5"><div className="mb-5 text-sm font-black text-navy">اطلاعات آزمون</div><div className="grid gap-5 sm:grid-cols-2"><Field label="عنوان آزمون" error={form.errors.title} wide><input value={form.data.title} onChange={(e) => form.setData('title', e.target.value)} className={input} placeholder="مثلاً: آزمون پایان ماژول" /></Field><Field label="درس" error={form.errors.lesson_id} wide><select value={String(form.data.lesson_id)} onChange={(e) => form.setData('lesson_id', Number(e.target.value))} className={input}>{lessons.map((lesson) => <option key={lesson.id} value={lesson.id}>{lesson.label}</option>)}</select><p className="mt-1.5 text-[0.68rem] leading-5 text-navy/45">پیشنهاد می‌شود درس از نوع «آزمون» انتخاب شود؛ با قبولی در آزمون، آن درس کامل می‌شود.</p></Field><Field label="نمره قبولی (٪)" error={form.errors.passing_score}><input type="number" min={0} max={100} value={form.data.passing_score} onChange={(e) => form.setData('passing_score', Number(e.target.value))} className={input} /></Field><Field label="مهلت (دقیقه، اختیاری)" error={form.errors.time_limit_minutes}><input type="number" min={1} max={600} value={form.data.time_limit_minutes} onChange={(e) => form.setData('time_limit_minutes', e.target.value === '' ? '' : Number(e.target.value))} className={input} /></Field><Field label="توضیح برای هنرجو" error={form.errors.description} wide><textarea rows={3} value={form.data.description} onChange={(e) => form.setData('description', e.target.value)} className={input} placeholder="اختیاری — راهنمای شروع آزمون" /></Field></div></section>
+        <section className="rounded-2xl bg-white p-6 shadow-soft ring-1 ring-navy/5"><div className="mb-5 flex items-center gap-2 text-sm font-black text-navy"><GripVertical className="size-4 text-brand-600" /> سؤال‌ها</div><div className="flex flex-col gap-4">{form.data.questions.map((question, index) => <div key={index} className="rounded-2xl border border-navy/10 bg-soft-gray/35 p-4"><div className="mb-4 flex items-center justify-between gap-3"><span className="rounded-lg bg-brand-100 px-2.5 py-1 text-xs font-black text-brand-800">سؤال {index + 1}</span><button type="button" onClick={() => form.setData('questions', form.data.questions.filter((_, i) => i !== index))} disabled={form.data.questions.length <= 1} className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-bold text-red-600 hover:bg-red-50 disabled:opacity-30"><Trash2 className="size-3.5" /> حذف</button></div><div className="grid gap-4 sm:grid-cols-2"><Field label="نوع سؤال"><select value={question.type} onChange={(e) => changeType(index, e.target.value)} className={input}>{Object.entries(questionTypes).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></Field><Field label={`امتیاز این سؤال (${labels[question.type]})`}><input type="number" min={1} max={100} value={question.score} onChange={(e) => updateQuestion(index, { score: Number(e.target.value) })} className={input} /></Field><Field label="متن سؤال" wide error={form.errors[`questions.${index}.question`]}><input value={question.question} onChange={(e) => updateQuestion(index, { question: e.target.value })} className={input} placeholder="سؤال را واضح بنویسید" /></Field>
+                {question.type !== 'true_false' ? <Field label={`گزینه‌ها (هر خط یک گزینه)`} wide><textarea rows={4} value={question.options.join('\n')} onChange={(e) => updateQuestion(index, { options: e.target.value.split(/\r?\n/) })} className={`${input} resize-y`} placeholder={'گزینه اول\nگزینه دوم'} /><p className="mt-1.5 text-[0.68rem] text-navy/45">برای گزینه‌های درست در گزینه بعدی تیک بزنید.</p></Field> : <Field label="گزینه‌ها"><div className="flex flex-wrap gap-2">{question.options.map((option) => <span key={option} className="rounded-xl bg-white px-3 py-2.5 text-xs font-bold text-navy/60 ring-1 ring-navy/10">{option}</span>)}</div></Field>}
+                <Field label={`پاسخ صحیح — ${question.type === 'multiple' ? 'چند مورد را انتخاب کنید' : 'یک مورد را انتخاب کنید'}`} wide>{question.options.length > 1 && <div className="flex flex-wrap gap-2">{question.options.map((option, optionIndex) => option.trim() === '' ? null : <button key={optionIndex} type="button" onClick={() => toggleCorrect(index, String(optionIndex))} className={`rounded-xl px-3 py-2.5 text-xs font-black transition-colors ${question.correct_answer.includes(String(optionIndex)) ? 'bg-emerald-600 text-white' : 'bg-white text-navy/60 ring-1 ring-navy/10 hover:ring-brand-300'}`}>{question.type === 'multiple' ? '☑' : '◉'} {option}</button>)}</div>}{question.correct_answer.length === 0 && <p className="mt-1.5 text-[0.68rem] text-amber-600">هنوز پاسخی به‌عنوان درست انتخاب نشده است.</p>}</Field>
+            </div></div>)}<button type="button" onClick={() => form.setData('questions', [...form.data.questions, freshQuestion()])} className="mt-4 inline-flex items-center gap-2 rounded-xl border border-dashed border-brand-300 px-4 py-3 text-sm font-black text-brand-700 hover:bg-brand-50"><Plus className="size-4" /> افزودن سؤال</button></div></section>
+        <div className="flex justify-end"><Button type="submit" loading={form.processing}><Save className="size-4" /> ذخیره نهایی آزمون</Button></div>
+    </form>;
+}
+function Field({ label, error, wide, children }: { label: string; error?: string; wide?: boolean; children: ReactNode }) { return <div className={wide ? 'sm:col-span-2' : ''}><label className="mb-1.5 block text-xs font-black text-navy/70">{label}</label>{children}{error && <p className="mt-1 text-xs font-bold text-red-600">{error}</p>}</div>; }
+QuizForm.layout = (page: ReactNode) => <AdminLayout title="ساخت و ویرایش آزمون">{page}</AdminLayout>;

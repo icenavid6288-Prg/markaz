@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'self'; img-src 'self' data:">
+    <title>تنظیمات اپلیکیشن</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: Vazirmatn, Tahoma, 'Segoe UI', sans-serif;
+            background: linear-gradient(160deg, #f5faf7 0%, #e8f4ee 100%);
+            color: #12251d;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+        }
+        .card {
+            width: 100%;
+            background: #ffffff;
+            border: 1px solid #d7e8df;
+            border-radius: 18px;
+            padding: 26px 26px 20px;
+            box-shadow: 0 12px 32px rgba(8, 127, 82, .12);
+        }
+        h1 {
+            font-size: 18px;
+            font-weight: 700;
+            color: #087f52;
+            margin-bottom: 6px;
+        }
+        .hint {
+            font-size: 13px;
+            color: #5b6f66;
+            line-height: 1.9;
+            margin-bottom: 18px;
+        }
+        label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+        input[type="text"] {
+            width: 100%;
+            direction: ltr;
+            text-align: left;
+            border: 1px solid #cfe3d8;
+            border-radius: 10px;
+            padding: 11px 12px;
+            font-size: 14px;
+            font-family: Consolas, monospace;
+            background: #fbfdfc;
+            outline: none;
+            transition: border-color .15s, box-shadow .15s;
+        }
+        input[type="text"]:focus {
+            border-color: #087f52;
+            box-shadow: 0 0 0 3px rgba(8, 127, 82, .15);
+        }
+        .row {
+            display: flex;
+            gap: 10px;
+            margin-top: 16px;
+        }
+        button {
+            flex: 1;
+            border: 0;
+            border-radius: 10px;
+            padding: 11px 14px;
+            font-size: 14px;
+            font-weight: 600;
+            font-family: inherit;
+            cursor: pointer;
+            transition: background .15s, transform .05s;
+        }
+        button:active { transform: translateY(1px); }
+        button.primary {
+            background: #087f52;
+            color: #fff;
+        }
+        button.primary:hover { background: #0a9664; }
+        button.secondary {
+            background: #eef5f1;
+            color: #31544a;
+        }
+        button.secondary:hover { background: #e0eee6; }
+        .msg {
+            min-height: 22px;
+            margin-top: 14px;
+            font-size: 13px;
+        }
+        .msg.ok { color: #087f52; }
+        .msg.err { color: #b3261e; }
+        .meta {
+            margin-top: 14px;
+            padding-top: 12px;
+            border-top: 1px dashed #dcebe3;
+            font-size: 12px;
+            color: #7c8f87;
+            display: flex;
+            justify-content: space-between;
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>تنظیمات اپلیکیشن</h1>
+        <p class="hint">
+            اپلیکیشن دسکتاپ به وب‌سایت (سرور) متصل می‌شود. آدرس سایت خود را وارد کنید؛
+            نشست ورود و اطلاعات شما همان‌جا ذخیره می‌شود.
+        </p>
+
+        <label for="server-url">آدرس سرور</label>
+        <input id="server-url" type="text" placeholder="https://example.com" autocomplete="off" spellcheck="false">
+
+        <div class="row">
+            <button id="save" class="primary" type="button">ذخیره و اتصال</button>
+            <button id="reset" class="secondary" type="button">بازنشانی به پیش‌فرض</button>
+        </div>
+
+        <p id="msg" class="msg"></p>
+
+        <div class="meta">
+            <span id="app-name">مرکز رشد و کارآفرینی دکتر بیدی</span>
+            <span>نسخه <span id="version">—</span></span>
+        </div>
+    </div>
+    <script src="./settings.js"></script>
+</body>
+</html>

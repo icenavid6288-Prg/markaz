@@ -1,0 +1,82 @@
+{
+    "name": "markaz-desktop",
+    "version": "1.0.0",
+    "description": "اپلیکیشن دسکتاپ مرکز رشد و کارآفرینی دکتر بیدی",
+    "main": "main.cjs",
+    "author": "Markaz",
+    "license": "MIT",
+    "scripts": {
+        "start": "electron .",
+        "icon": "electron scripts/make-icon.cjs",
+        "smoke": "cross-env MARKAZ_SMOKE_TEST=1 electron .",
+        "dist": "electron-builder",
+        "dist:win": "electron-builder --win",
+        "dist:mac": "electron-builder --mac",
+        "dist:linux": "electron-builder --linux"
+    },
+    "devDependencies": {
+        "cross-env": "^7.0.3",
+        "electron": "^43.4.0",
+        "electron-builder": "^26.15.3"
+    },
+    "build": {
+        "appId": "ir.markaz.desktop",
+        "productName": "MarkazDesktop",
+        "executableName": "MarkazDesktop",
+        "directories": {
+            "output": "release",
+            "buildResources": "icons"
+        },
+        "files": [
+            "main.cjs",
+            "preload.cjs",
+            "renderer/**/*"
+        ],
+        "win": {
+            "target": [
+                "nsis"
+            ],
+            "icon": "icons/icon.png"
+        },
+        "nsis": {
+            "oneClick": false,
+            "allowToChangeInstallationDirectory": true,
+            "createDesktopShortcut": true,
+            "createStartMenuShortcut": true,
+            "shortcutName": "مرکز رشد و کارآفرینی دکتر بیدی"
+        },
+        "mac": {
+            "target": [
+                "dmg",
+                "zip"
+            ],
+            "icon": "icons/icon.png",
+            "category": "public.app-category.education",
+            "hardenedRuntime": false,
+            "identity": null
+        },
+        "dmg": {
+            "title": "${productName} ${version}",
+            "contents": [
+                {
+                    "x": 130,
+                    "y": 220
+                },
+                {
+                    "x": 410,
+                    "y": 220,
+                    "type": "link",
+                    "path": "/Applications"
+                }
+            ]
+        },
+        "linux": {
+            "target": [
+                "AppImage"
+            ],
+            "icon": "icons/icon.png",
+            "category": "Education",
+            "synopsis": "اپلیکیشن دسکتاپ مرکز رشد و کارآفرینی دکتر بیدی"
+        }
+    }
+}

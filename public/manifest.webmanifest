@@ -1,0 +1,25 @@
+{
+  "id": "/",
+  "name": "مرکز رشد و کارآفرینی دکتر بیدی",
+  "short_name": "مرکز رشد",
+  "lang": "fa-IR",
+  "dir": "rtl",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone"],
+  "orientation": "portrait-primary",
+  "background_color": "#f5faf7",
+  "theme_color": "#087f52",
+  "description": "اکوسیستم آموزش، کوچینگ و طراحی مسیر رشد نوجوانان",
+  "categories": ["education", "lifestyle"],
+  "prefer_related_applications": false,
+  "icons": [
+    { "src": "/app-icon", "sizes": "any", "purpose": "any maskable" }
+  ],
+  "shortcuts": [
+    { "name": "دوره‌ها", "short_name": "دوره‌ها", "url": "/courses", "icons": [{ "src": "/app-icon", "sizes": "any" }] },
+    { "name": "فروشگاه", "short_name": "فروشگاه", "url": "/shop", "icons": [{ "src": "/app-icon", "sizes": "any" }] },
+    { "name": "پنل کاربری", "short_name": "پنل کاربری", "url": "/dashboard", "icons": [{ "src": "/app-icon", "sizes": "any" }] }
+  ]
+}
