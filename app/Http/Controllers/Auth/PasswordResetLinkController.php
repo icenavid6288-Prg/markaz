@@ -65,23 +65,33 @@ class PasswordResetLinkController extends Controller
             ]
         );
 
+        $smsFailed = false;
+
         try {
             $sms->sendOtp($phone, $code);
         } catch (Throwable $exception) {
             report($exception);
+            $smsFailed = true;
 
-            return back()->withErrors([
-                'phone' => 'ارسال کد تأیید ناموفق بود. لطفاً کمی بعد دوباره تلاش کنید.',
-            ])->withInput();
+            if (app()->environment('production')) {
+                return back()->withErrors([
+                    'phone' => 'ارسال کد تأیید ناموفق بود. لطفاً کمی بعد دوباره تلاش کنید.',
+                ])->withInput();
+            }
         }
 
         session()->flash('reset_phone', $phone);
 
         // Development aid: expose the code on the reset screen only outside production.
-        if (app()->environment(['local', 'testing'])) {
+        $otpCodeEnabled = ! app()->environment('production');
+        if ($otpCodeEnabled) {
             session()->flash('dev_code', $code);
         }
 
-        return redirect()->route('password.reset')->with('status', 'کد تأیید به شماره شما پیامک شد.');
+        $status = $otpCodeEnabled && $smsFailed
+            ? 'ارسال پیامک در دسترس نبود؛ کد تأیید روی صفحه نمایش داده شد.'
+            : 'کد تأیید به شماره شما پیامک شد.';
+
+        return redirect()->route('password.reset')->with('status', $status);
     }
 }
