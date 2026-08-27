@@ -137,9 +137,15 @@ class AuthenticatedSessionController extends Controller
             $sms->sendOtp($phone, $code);
         } catch (Throwable $exception) {
             report($exception);
+            Log::error('Admin OTP SMS failed', [
+                'phone_hash' => hash('sha256', $phone),
+                'error' => $exception->getMessage(),
+            ]);
 
             return back()->withErrors([
-                'phone' => 'ارسال کد ورود ناموفق بود. لطفاً کمی بعد دوباره تلاش کنید.',
+                'phone' => app()->environment('production')
+                    ? 'ارسال کد ورود ناموفق بود. لطفاً کمی بعد دوباره تلاش کنید.'
+                    : $exception->getMessage(),
             ])->withInput();
         }
 
@@ -306,7 +312,13 @@ class AuthenticatedSessionController extends Controller
             $sms->sendOtp($phone, $code);
         } catch (Throwable $exception) {
             report($exception);
-            $message = 'ارسال کد ورود ناموفق بود. لطفاً کمی بعد دوباره تلاش کنید.';
+            Log::error('Login OTP SMS failed', [
+                'phone_hash' => hash('sha256', $phone),
+                'error' => $exception->getMessage(),
+            ]);
+            $message = app()->environment('production')
+                ? 'ارسال کد ورود ناموفق بود. لطفاً کمی بعد دوباره تلاش کنید.'
+                : $exception->getMessage();
 
             return $isModal
                 ? redirect()->to($this->modalReturnUrl($request))->withErrors(['phone' => $message])->withInput()
