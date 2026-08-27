@@ -62,6 +62,18 @@ class AdminLoginRequest extends FormRequest
             ]);
         }
 
+        // Admin accounts must not be accessible with the default/placeholder
+        // password. Anyone still using it is forced to change it in their
+        // profile before they can enter the admin panel.
+        if (Hash::check($this->defaultPassword(), (string) $user->password)) {
+            RateLimiter::hit($this->throttleKey(), 300);
+            RateLimiter::hit($this->ipThrottleKey(), 300);
+
+            throw ValidationException::withMessages([
+                'password' => 'رمز عبور پیش‌فرض را قبل از ورود به پنل تغییر دهید.',
+            ]);
+        }
+
         RateLimiter::clear($this->throttleKey());
         RateLimiter::clear($this->ipThrottleKey());
         Auth::login($user, $this->boolean('remember'));
@@ -100,5 +112,15 @@ class AdminLoginRequest extends FormRequest
     private function ipThrottleKey(): string
     {
         return 'admin-login-ip:'.$this->ip();
+    }
+
+    /**
+     * The default password an admin account ships with until it is changed.
+     * Keep in sync with UserFactory and AdminUserSeeder so the guard only ever
+     * blocks accounts that were never given a real password.
+     */
+    private function defaultPassword(): string
+    {
+        return 'password';
     }
 }

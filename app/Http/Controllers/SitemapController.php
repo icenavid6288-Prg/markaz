@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\BlogPost;
 use App\Models\Course;
+use App\Models\Page;
 use App\Models\Product;
 use App\Models\Service;
 use Illuminate\Support\Collection;

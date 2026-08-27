@@ -108,6 +108,17 @@ class SurveyController extends Controller
         $visiblePool = $registrationRequired ? $questions->take($registrationAfter)->values() : $questions->values();
         $paged = $survey->displayMode() === 'paged';
         $rawAnswers = $request->input('answers', []);
+        if (! is_array($rawAnswers)) {
+            $rawAnswers = [];
+        }
+
+        // Persline / legacy clients submit a single `question_id` + `answer`
+        // pair at the top level instead of the nested `answers` map. Normalize
+        // that payload so both shapes are persisted identically below.
+        if (empty($rawAnswers) && $request->filled('question_id')) {
+            $rawAnswers[(string) $request->input('question_id')] = $request->input('answer');
+        }
+
         $answers = $response->answers ?? [];
         $errors = [];
 
