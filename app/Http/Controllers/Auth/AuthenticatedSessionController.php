@@ -34,6 +34,7 @@ class AuthenticatedSessionController extends Controller
         $showCodeStep = $request->query('step') === 'code' && filled($phone);
 
         return Inertia::render('Auth/Login', $this->loginProps([
+            'canResetPassword' => true,
             'step' => $showCodeStep ? 'code' : 'phone',
             'phone' => $showCodeStep ? $phone : '',
             'dev_code' => $showCodeStep && $this->otpCodeEnabled()
@@ -257,16 +258,64 @@ class AuthenticatedSessionController extends Controller
     }
 
     /**
-     * Send a one-time SMS login code. Public login never accepts a password.
+     * Handle password login or send a one-time SMS login code.
      */
     public function store(Request $request, SmsSender $sms): RedirectResponse
     {
+        $phone = $request->string('phone')->toString();
+        $password = $request->input('password');
+        $isModal = $request->boolean('modal');
+
+        // ── Password-based login ──
+        if (filled($password)) {
+            $request->validate([
+                'phone' => ['required', 'string', 'regex:/^09\d{9}$/'],
+                'password' => ['required', 'string'],
+            ]);
+
+            $rateKey = 'login-password:'.$phone;
+            $rateIpKey = 'login-password-ip:'.$request->ip();
+
+            if (RateLimiter::tooManyAttempts($rateKey, 5) || RateLimiter::tooManyAttempts($rateIpKey, 30)) {
+                $seconds = max(RateLimiter::availableIn($rateKey), RateLimiter::availableIn($rateIpKey));
+                $message = 'تعداد تلاش‌ها بیش از حد مجاز است. لطفاً '.ceil($seconds / 60).' دقیقه دیگر تلاش کنید.';
+
+                return $isModal
+                    ? redirect()->to($this->modalReturnUrl($request))->withErrors(['phone' => $message])
+                    : back()->withErrors(['phone' => $message])->withInput();
+            }
+
+            $user = User::where('phone', $phone)->where('is_active', true)->first();
+
+            if (! $user || ! Hash::check($password, $user->password)) {
+                RateLimiter::hit($rateKey, 300);
+                RateLimiter::hit($rateIpKey, 300);
+                $message = 'شماره موبایل یا رمز عبور صحیح نیست.';
+
+                return $isModal
+                    ? redirect()->to($this->modalReturnUrl($request))->withErrors(['phone' => $message])
+                    : back()->withErrors(['phone' => $message])->withInput();
+            }
+
+            RateLimiter::clear($rateKey);
+            RateLimiter::clear($rateIpKey);
+            $request->session()->regenerate();
+            Auth::login($user, $request->boolean('remember'));
+            Log::info('Password login succeeded', [
+                'user_id' => $user->getKey(),
+                'ip' => $request->ip(),
+            ]);
+
+            return $isModal
+                ? redirect()->to(route('dashboard', absolute: false))
+                : redirect()->intended(route('dashboard', absolute: false));
+        }
+
+        // ── OTP-based login (phone only, send SMS code) ──
         $request->validate([
             'phone' => ['required', 'string', 'regex:/^09\d{9}$/'],
         ]);
 
-        $phone = $request->string('phone')->toString();
-        $isModal = $request->boolean('modal');
         $requestKey = 'login-code-request:'.$phone;
         $ipKey = 'login-code-request-ip:'.$request->ip();
 

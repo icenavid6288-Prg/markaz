@@ -1,6 +1,9 @@
 import { Head, Link, useForm } from '@inertiajs/react';
 import {
     ArrowLeft,
+    Eye,
+    EyeOff,
+    KeyRound,
     LogIn,
     MessageSquareText,
     ShieldCheck,
@@ -13,11 +16,13 @@ import GuestLayout from '@/Layouts/GuestLayout';
 
 export default function Login({
     status,
+    canResetPassword,
     step = 'phone',
     phone = '',
     dev_code,
 }: {
     status?: string;
+    canResetPassword?: boolean;
     step?: 'phone' | 'code';
     phone?: string;
     dev_code?: string | null;
@@ -25,10 +30,13 @@ export default function Login({
     const { data, setData, post, processing, errors } = useForm({
         phone,
         code: '',
+        password: '',
         remember: false,
     });
 
     const isCodeStep = step === 'code';
+    const [method, setMethod] = useState<'password' | 'otp'>('password');
+    const [showPassword, setShowPassword] = useState(false);
     const [resendSeconds, setResendSeconds] = useState(0);
 
     useEffect(() => {
@@ -49,10 +57,17 @@ export default function Login({
         if (resendSeconds > 0 || processing || !data.phone) return;
 
         setData('code', '');
+        setData('password', '');
         post(route('login'), {
             preserveScroll: true,
             onSuccess: () => setResendSeconds(60),
         });
+    };
+
+    const toggleMethod = () => {
+        setMethod((current) => (current === 'password' ? 'otp' : 'password'));
+        setData('password', '');
+        setShowPassword(false);
     };
 
     const submit: FormEventHandler = (event) => {
@@ -86,7 +101,9 @@ export default function Login({
             <p className="mt-2 text-sm leading-7 text-navy/55">
                 {isCodeStep
                     ? 'کد شش‌رقمی ارسال‌شده به شماره موبایل خود را وارد کنید تا وارد پنل شوید.'
-                    : 'فقط شماره موبایل خود را وارد کنید؛ کد ورود برایتان پیامک می‌شود.'}
+                    : method === 'password'
+                        ? 'شماره موبایل و رمز عبور خود را وارد کنید.'
+                        : 'فقط شماره موبایل خود را وارد کنید؛ کد ورود برایتان پیامک می‌شود.'}
             </p>
 
             {status && (
@@ -131,6 +148,40 @@ export default function Login({
                     )}
                 </div>
 
+                {!isCodeStep && method === 'password' && (
+                    <div>
+                        <label htmlFor="password" className="mb-1.5 block text-xs font-black text-navy/70">
+                            رمز عبور
+                        </label>
+                        <div className="relative">
+                            <KeyRound className="pointer-events-none absolute right-4 top-1/2 size-4 -translate-y-1/2 text-navy/30" aria-hidden />
+                            <input
+                                id="password"
+                                type={showPassword ? 'text' : 'password'}
+                                name="password"
+                                dir="ltr"
+                                value={data.password}
+                                autoComplete="current-password"
+                                placeholder="رمز عبور حساب شما"
+                                onChange={(event) => setData('password', event.target.value)}
+                                className="w-full rounded-2xl border border-navy/10 bg-white py-3 pl-12 pr-11 text-left text-sm text-navy outline-none transition-all placeholder:text-navy/30 focus:border-brand-500 focus:ring-4 focus:ring-brand-200/40"
+                            />
+                            <button
+                                type="button"
+                                onClick={() => setShowPassword((value) => !value)}
+                                className="absolute left-3 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-lg text-navy/35 transition-colors hover:text-brand-700"
+                                aria-label={showPassword ? 'پنهان کردن رمز عبور' : 'نمایش رمز عبور'}
+                                tabIndex={-1}
+                            >
+                                {showPassword ? <EyeOff className="size-4" aria-hidden /> : <Eye className="size-4" aria-hidden />}
+                            </button>
+                        </div>
+                        {errors.password && (
+                            <p className="mt-1.5 text-xs font-bold text-red-600">{errors.password}</p>
+                        )}
+                    </div>
+                )}
+
                 {isCodeStep && (
                     <div>
                         <label htmlFor="code" className="mb-1.5 block text-xs font-black text-navy/70">
@@ -159,24 +210,37 @@ export default function Login({
                     </div>
                 )}
 
-                <label className="flex cursor-pointer items-center gap-2.5 text-xs font-bold text-navy/60">
-                    <input
-                        type="checkbox"
-                        checked={data.remember}
-                        onChange={(event) => setData('remember', event.target.checked)}
-                        className="size-4 rounded-md border-navy/20 text-brand-600 focus:ring-brand-500"
-                    />
-                    مرا به خاطر بسپار
-                </label>
+                <div className="flex items-center justify-between gap-4">
+                    <label className="flex cursor-pointer items-center gap-2.5 text-xs font-bold text-navy/60">
+                        <input
+                            type="checkbox"
+                            checked={data.remember}
+                            onChange={(event) => setData('remember', event.target.checked)}
+                            className="size-4 rounded-md border-navy/20 text-brand-600 focus:ring-brand-500"
+                        />
+                        مرا به خاطر بسپار
+                    </label>
+                    {!isCodeStep && canResetPassword && (
+                        <Link href={route('password.request')} className="text-xs font-black text-brand-700 transition-colors hover:text-brand-800">
+                            فراموشی رمز عبور؟
+                        </Link>
+                    )}
+                </div>
 
                 <button
                     type="submit"
                     disabled={processing}
                     className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-l from-brand-600 to-brand-500 px-7 py-3.5 text-base font-black text-white shadow-glow transition-all hover:from-brand-700 hover:to-brand-600 active:scale-[0.98] disabled:opacity-60"
                 >
-                    {isCodeStep ? <LogIn className="size-5" aria-hidden /> : <MessageSquareText className="size-5" aria-hidden />}
-                    {processing ? 'در حال بررسی...' : isCodeStep ? 'ورود به پنل' : 'دریافت کد ورود'}
+                    {isCodeStep ? <LogIn className="size-5" aria-hidden /> : method === 'password' ? <LogIn className="size-5" aria-hidden /> : <MessageSquareText className="size-5" aria-hidden />}
+                    {processing ? 'در حال بررسی...' : isCodeStep ? 'ورود به پنل' : method === 'password' ? 'ورود به حساب' : 'دریافت کد ورود'}
                 </button>
+
+                {!isCodeStep && (
+                    <button type="button" onClick={toggleMethod} className="text-xs font-black text-brand-700 transition-colors hover:text-brand-800">
+                        {method === 'password' ? 'رمز عبور را ندارید؟ ورود با کد پیامکی' : 'ورود با رمز عبور'}
+                    </button>
+                )}
 
                 {isCodeStep && (
                     <div className="flex flex-col items-center justify-center gap-2 text-xs font-bold text-navy/45">
