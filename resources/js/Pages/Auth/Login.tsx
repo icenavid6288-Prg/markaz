@@ -57,7 +57,10 @@ export default function Login({
 
     const submit: FormEventHandler = (event) => {
         event.preventDefault();
-        post(isCodeStep ? route('login.verify.store') : route('login'));
+        post(isCodeStep ? route('login.verify.store') : route('login'), {
+            preserveScroll: true,
+            preserveState: true,
+        });
     };
 
     return (

@@ -27,7 +27,11 @@ class EnsureUserIsActive
             $request->session()->invalidate();
             $request->session()->regenerateToken();
 
-            return redirect()->route('login')->withErrors([
+            $redirectTo = $request->is('admin') || $request->is('admin/*')
+                ? route('admin.login')
+                : route('login');
+
+            return redirect($redirectTo)->withErrors([
                 'phone' => 'حساب کاربری شما غیرفعال شده است.',
             ]);
         }

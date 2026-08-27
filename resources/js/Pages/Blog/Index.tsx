@@ -74,7 +74,7 @@ export default function BlogIndex() {
                 subtitle="مقالات تخصصی درباره استعدادیابی، کوچینگ نوجوان، مهارت‌های آینده و تربیت؛ نوشته‌شده برای خانواده‌ها و مدرسین."
             />
 
-            <section className="relative overflow-hidden bg-white py-12 md:py-16">
+            <section className="relative overflow-hidden bg-gradient-to-b from-white via-brand-50/20 to-white py-12 md:py-16">
                 <div className="ambient ambient-green ambient-a" aria-hidden />
                 <div className="ambient ambient-gold ambient-b" aria-hidden />
                 <div className="container-site relative">
@@ -143,7 +143,7 @@ export default function BlogIndex() {
                         </div>
                     )}
 
-                    <div className="mt-6 flex items-center justify-between gap-4 text-xs font-bold text-navy/45">
+                    <div className="mt-8 flex items-center justify-between gap-4 text-xs font-bold text-navy/45">
                         <span>{formatNumber(posts.total)} مقاله یافت شد</span>
                         {(filters.q || filters.category || filters.sort !== 'latest') && (
                             <Link href="/blog" className="text-brand-700 hover:text-brand-800">حذف فیلترها</Link>
@@ -180,9 +180,9 @@ export default function BlogIndex() {
                     {posts.data.length > 0 ? (
                         <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                             {posts.data.map((post) => (
-                                <Link key={post.id} href={`/blog/${post.slug}`} className="liquid-card group flex flex-col overflow-hidden">
+                                <Link key={post.id} href={`/blog/${post.slug}`} className="liquid-card group flex min-h-[25rem] flex-col overflow-hidden transition-all duration-300 hover:-translate-y-2 hover:shadow-lift">
                                     <span className="liquid-blob blob-b" aria-hidden />
-                                    <div className="relative aspect-video overflow-hidden">
+                                    <div className="relative aspect-[16/10] overflow-hidden">
                                         {post.cover_image ? <img src={post.cover_image} alt={post.title} className="size-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy" /> : <div className="flex size-full items-center justify-center bg-gradient-to-br from-brand-100 to-emerald-50 text-brand-400"><Newspaper className="size-10" /></div>}
                                     </div>
                                     <div className="flex flex-1 flex-col gap-3 p-5">
@@ -193,7 +193,7 @@ export default function BlogIndex() {
                                         </div>
                                         <h2 className="line-clamp-2 text-base font-black leading-7 text-navy transition-colors group-hover:text-brand-700">{post.title}</h2>
                                         <p className="line-clamp-2 flex-1 text-sm leading-7 text-navy/55">{post.excerpt}</p>
-                                        <span className="service-more mt-auto text-xs font-bold text-brand-700">خواندن مقاله <ArrowLeft className="inline size-3.5" aria-hidden /></span>
+                                        <span className="mt-auto inline-flex items-center gap-2 text-xs font-black text-brand-700 transition-all group-hover:gap-3">خواندن مقاله <ArrowLeft className="size-3.5" aria-hidden /></span>
                                     </div>
                                 </Link>
                             ))}

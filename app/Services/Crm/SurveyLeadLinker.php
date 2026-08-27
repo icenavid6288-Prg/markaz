@@ -28,7 +28,7 @@ class SurveyLeadLinker
      */
     public function extractFields(SurveyResponse $response): array
     {
-        $answers = $response->answers ?? [];
+        $answers = $response->answersForQuestions($response->survey->questions);
         $fields = [];
 
         foreach ($response->survey->questions as $question) {

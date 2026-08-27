@@ -6,7 +6,9 @@
 #   1. public/build        (باندل جدید فرانت‌اند — همیشه)
 #   2. public/sw.js        (نسخه جدید سرویس‌ورکر — همیشه)
 #   3. public/install.php و public/install-selfheal.php (اگر موجود باشند — همیشه)
-#   4. فایل‌های PHP تغییرکرده  (app, routes, config, database, resources/views, ...)
+#   4. markaz-deploy-vendor-build.tar.gz (در صورت تغییر composer.json/lock یا --all)
+#      — برای SSH روی سرور استخراج می‌شود؛ برای FTP با extract-bundle endpoint فراخوانی می‌شود
+#   5. فایل‌های PHP تغییرکرده  (app, routes, config, database, resources/views, ...)
 #      — تشخیص با مقایسه زمان تغییر فایل‌ها با marker «.deploy-last»
 #      — با --all همه این پوشه‌ها آپلود می‌شوند (برای اولین دیپلوی یا بازنشانی)
 #
@@ -70,6 +72,17 @@ else
 fi
 
 MARKER=".deploy-last"
+MARKAZ_VENDOR_TARBALL="markaz-deploy-vendor-build.tar.gz"
+
+# آیا vendor باید بازسازی شود؟ (composer.json/lock تغییر کرده، یا اولین دیپلوی)
+NEED_VENDOR=0
+if [[ "$ALL_FILES" -eq 1 || ! -f "$MARKER" ]]; then
+    NEED_VENDOR=1
+elif [[ -f composer.json && composer.json -nt "$MARKER" ]]; then
+    NEED_VENDOR=1
+elif [[ -f composer.lock && composer.lock -nt "$MARKER" ]]; then
+    NEED_VENDOR=1
+fi
 
 # ---------- ساخت فهرست فایل‌ها ----------
 # همیشه آپلود می‌شوند:
@@ -106,16 +119,41 @@ fi
 echo "== دیپلوی به $TARGET ($TRANSPORT) =="
 echo "   مسیر سرور: $DEPLOY_REMOTE_PATH"
 echo "   فایل‌های همیشگی: public/build + sw.js + install + index + composer"
+if [[ "$NEED_VENDOR" -eq 1 ]]; then
+    echo "   بسته vendor: بله (composer.json/lock تغییر کرده یا --all)"
+else
+    echo "   بسته vendor: خیر (composer.json/lock بدون تغییر)"
+fi
 echo "   فایل‌های PHP برای آپلود: ${#changed_php[@]}"
 if [[ "$DRY_RUN" -eq 1 ]]; then
     echo "   [dry-run] هیچ چیزی آپلود نمی‌شود:"
+    if [[ "$NEED_VENDOR" -eq 1 ]]; then echo "      $MARKAZ_VENDOR_TARBALL"; fi
     printf '      %s\n' "${always[@]}" "${changed_php[@]}" | grep -v '^$'
     exit 0
 fi
 
+# ---------- ساخت بسته vendor ----------
+if [[ "$NEED_VENDOR" -eq 1 ]]; then
+    [[ -d vendor ]] || { echo "پوشه vendor پیدا نشد — اول composer install را اجرا کنید." >&2; exit 1; }
+    if [[ -d public/build ]]; then
+        echo "== مرحله ۰: ساخت $MARKAZ_VENDOR_TARBALL (vendor + build) =="
+        rm -f "$MARKAZ_VENDOR_TARBALL"
+        tar -czf "$MARKAZ_VENDOR_TARBALL" vendor/ public/build/
+    else
+        echo "== مرحله ۰: ساخت $MARKAZ_VENDOR_TARBALL (فقط vendor) =="
+        rm -f "$MARKAZ_VENDOR_TARBALL"
+        tar -czf "$MARKAZ_VENDOR_TARBALL" vendor/
+    fi
+    echo "   ✅ بسته vendor ساخته شد ($(du -h "$MARKAZ_VENDOR_TARBALL" | cut -f1))"
+else
+    echo "== مرحله ۰: بسته vendor بدون تغییر — رد شد =="
+fi
+
 # ---------- آپلود ----------
 upload_scp() { # $1 = مسیر محلی (فایل یا پوشه)
-    scp -q -P "$DEPLOY_SSH_PORT" ${DEPLOY_SSH_KEY:+-i "$DEPLOY_SSH_KEY"} -r "$1" "${TARGET}:${DEPLOY_REMOTE_PATH}/"
+    local source="$1"
+    ssh -q -p "$DEPLOY_SSH_PORT" ${DEPLOY_SSH_KEY:+-i "$DEPLOY_SSH_KEY"} "$TARGET" "mkdir -p '${DEPLOY_REMOTE_PATH}/$(dirname "$source")'"
+    scp -q -P "$DEPLOY_SSH_PORT" ${DEPLOY_SSH_KEY:+-i "$DEPLOY_SSH_KEY"} -r "$source" "${TARGET}:${DEPLOY_REMOTE_PATH}/$(dirname "$source")/"
 }
 
 upload_ftp() { # $1 = مسیر محلی (فقط فایل)
@@ -140,14 +178,38 @@ for f in "${always[@]}"; do
 done
 echo "   ✅ sw.js / install / index / composer آپلود شد"
 
-echo "== مرحله ۳: فایل‌های PHP تغییرکرده (${#changed_php[@]}) =="
+# ---------- آپلود و استخراج بسته vendor ----------
+if [[ "$NEED_VENDOR" -eq 1 ]]; then
+    echo "== مرحله ۳: آپلود بسته vendor =="
+    if [[ "$TRANSPORT" == ssh ]]; then
+        upload_scp "$MARKAZ_VENDOR_TARBALL"
+        echo "   ✅ $MARKAZ_VENDOR_TARBALL آپلود شد"
+        echo "== مرحله ۳-ب: استخراج بسته روی سرور =="
+        ssh -p "$DEPLOY_SSH_PORT" ${DEPLOY_SSH_KEY:+-i "$DEPLOY_SSH_KEY"} "$TARGET" \
+            "cd '${DEPLOY_REMOTE_PATH}' && tar -xzf '$MARKAZ_VENDOR_TARBALL' && echo OK"
+        echo "   ✅ vendor + build روی سرور استخراج شد"
+    else
+        upload_ftp "$MARKAZ_VENDOR_TARBALL"
+        echo "   ✅ $MARKAZ_VENDOR_TARBALL آپلود شد"
+        echo "== مرحله ۳-ب: فراخوانی استخراج خودکار روی سرور =="
+        FTP_EXTRACT_URL="https://${DEPLOY_HOST}/install.php?extract-bundle=1"
+        FTP_EXTRACT_RESULT=$(curl -sS --max-time 120 "$FTP_EXTRACT_URL" || echo "CURL_FAILED")
+        if [[ "$FTP_EXTRACT_RESULT" == "EXTRACTED" ]]; then
+            echo "   ✅ vendor + build روی سرور استخراج شد"
+        else
+            echo "   ❌ استخراج خودکار ناموفق: $FTP_EXTRACT_RESULT" >&2
+            echo "   لطفاً install.php?extract-bundle=1 را در مرورگر باز کنید یا پوشه vendor را با FTP آپلود کنید." >&2
+            exit 1
+        fi
+    fi
+fi
+
+echo "== مرحله ۴: فایل‌های PHP تغییرکرده (${#changed_php[@]}) =="
 if [[ "${#changed_php[@]}" -eq 0 ]]; then
     echo "   هیچ فایل PHP تغییرکرده‌ای نیست."
 else
     for f in "${changed_php[@]}"; do
         if [[ "$TRANSPORT" == ssh ]]; then
-            # اطمینان از وجود پوشه مقصد برای فایل‌های جدید
-            ssh -p "$DEPLOY_SSH_PORT" ${DEPLOY_SSH_KEY:+-i "$DEPLOY_SSH_KEY"} "$TARGET" "mkdir -p '${DEPLOY_REMOTE_PATH}/$(dirname "$f")'"
             upload_scp "$f"
         else
             upload_ftp "$f"
@@ -159,7 +221,7 @@ fi
 # ---------- پاک‌سازی کش روی سرور ----------
 if [[ "$RUN_CACHE" -eq 1 ]]; then
     if [[ "$TRANSPORT" == ssh ]]; then
-        echo "== مرحله ۴: پاک‌سازی و بازسازی کش Laravel =="
+        echo "== مرحله ۵: پاک‌سازی و بازسازی کش Laravel =="
         ssh -p "$DEPLOY_SSH_PORT" ${DEPLOY_SSH_KEY:+-i "$DEPLOY_SSH_KEY"} "$TARGET" \
             "cd '${DEPLOY_REMOTE_PATH}' && php artisan optimize:clear && php artisan config:cache && php artisan route:cache && php artisan view:cache"
         if [[ "$DEPLOY_MIGRATE" -eq 1 ]]; then
@@ -169,7 +231,7 @@ if [[ "$RUN_CACHE" -eq 1 ]]; then
         fi
         echo "   ✅ کش ساخته شد"
     else
-        echo "== مرحله ۴: پاک‌سازی کش (دستی) =="
+        echo "== مرحله ۵: پاک‌سازی کش (دستی) =="
         echo "   هاست SSH ندارد؛ از File Manager هاست این فایل‌ها را حذف کنید تا کش دوباره ساخته شود:"
         echo "     ${DEPLOY_REMOTE_PATH}/bootstrap/cache/config.php"
         echo "     ${DEPLOY_REMOTE_PATH}/bootstrap/cache/routes-*.php"

@@ -22,6 +22,42 @@ class AuthenticationTest extends TestCase
         $response->assertStatus(200);
     }
 
+    public function test_admin_login_screen_can_be_rendered(): void
+    {
+        $this->get('/admin/login')
+            ->assertStatus(200)
+            ->assertInertia(fn ($page) => $page->component('Auth/AdminLogin'));
+    }
+
+    public function test_admin_can_login_with_phone_and_password(): void
+    {
+        $admin = User::factory()->create([
+            'password' => Hash::make('admin-secret'),
+        ]);
+        $admin->assignRole('admin');
+
+        $response = $this->post('/admin/login', [
+            'phone' => $admin->phone,
+            'password' => 'admin-secret',
+            'remember' => true,
+        ]);
+
+        $this->assertAuthenticatedAs($admin);
+        $response->assertRedirect(route('admin.dashboard', absolute: false));
+    }
+
+    public function test_non_admin_cannot_login_to_admin_panel(): void
+    {
+        $user = User::factory()->create(['password' => Hash::make('user-secret')]);
+
+        $this->post('/admin/login', [
+            'phone' => $user->phone,
+            'password' => 'user-secret',
+        ])->assertSessionHasErrors('phone');
+
+        $this->assertGuest();
+    }
+
     public function test_password_cannot_log_the_user_in(): void
     {
         $user = User::factory()->create(['password' => Hash::make('secret-password')]);

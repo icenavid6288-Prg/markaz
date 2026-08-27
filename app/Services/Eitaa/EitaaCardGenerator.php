@@ -171,7 +171,7 @@ class EitaaCardGenerator
         $stats = [];
 
         foreach ($survey->questions->filter(fn ($question) => $question->include_in_summary !== false) as $question) {
-            $answers = $responses->pluck('answers')->filter();
+            $answers = $responses->map(fn ($response) => $response->answersForQuestions($survey->questions))->filter();
             $key = (string) $question->id;
             $lines = [];
 

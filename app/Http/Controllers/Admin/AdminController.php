@@ -18,7 +18,7 @@ class AdminController extends Controller
 {
     public function dashboard(Request $request): Response
     {
-        abort_unless($request->user()?->hasAnyRole(['super-admin', 'admin', 'editor']), 403);
+        abort_unless($request->user()?->hasAnyRole(['super-admin', 'admin', 'editor', 'instructor', 'coach']), 403);
 
         $days = 30;
 

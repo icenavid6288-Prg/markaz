@@ -114,7 +114,8 @@ class ContentController extends Controller
                 ['name' => 'category_id', 'label' => 'دسته‌بندی', 'type' => 'category'],
                 ['name' => 'excerpt', 'label' => 'خلاصه', 'type' => 'textarea', 'wide' => true],
                 ['name' => 'body', 'label' => 'متن مقاله', 'type' => 'textarea', 'wide' => true, 'required' => true],
-                ['name' => 'cover_image', 'label' => 'تصویر کاور (URL)', 'type' => 'text'],
+                ['name' => 'cover_image', 'label' => 'تصویر شاخص / تامنیل مقاله', 'type' => 'image', 'help' => 'تصویر اصلی کارت مقاله و تصویر شاخص صفحه مقاله؛ PNG، JPG یا WEBP تا ۸ مگابایت.'],
+                ['name' => 'article_image', 'label' => 'تصویر داخل مقاله', 'type' => 'image', 'help' => 'این تصویر داخل متن مقاله نمایش داده می‌شود؛ PNG، JPG یا WEBP تا ۸ مگابایت.'],
                 ['name' => 'video_url', 'label' => 'لینک ویدیو (آپارات، یوتیوب، ویمئو یا MP4)', 'type' => 'text', 'help' => 'لینک ویدیو داخل مقاله پخش می‌شود؛ فقط لینک صفحه ویدیو را وارد کنید، نه کد iframe.'],
                 ['name' => 'status', 'label' => 'وضعیت', 'type' => 'select', 'options' => ['draft' => 'پیش‌نویس', 'published' => 'منتشرشده', 'archived' => 'بایگانی']],
                 ['name' => 'published_at', 'label' => 'تاریخ انتشار', 'type' => 'datetime'],
@@ -762,9 +763,8 @@ class ContentController extends Controller
      *
      * @param array<string, mixed> $config
      * @param array<string, mixed> $data
-     * @return array<string, mixed>
      */
-    private function applyImages(Request $request, string $resource, array $config, Model $item, array $data): array
+    private function applyImages(Request $request, string $resource, array $config, Model $item, array $data): void
     {
         $changes = [];
         foreach ($config['fields'] as $field) {
@@ -773,9 +773,14 @@ class ContentController extends Controller
             }
 
             $name = $field['name'];
+            if (! array_key_exists($name, $data)) {
+                // An omitted field means "leave the existing image unchanged".
+                continue;
+            }
             $value = $data[$name] ?? null;
 
-            // An untouched field keeps its saved URL; nothing to do.
+            // An existing URL keeps the saved image; only a new file or an empty
+            // value (explicit removal) changes storage.
             if (is_string($value) && $value !== '') {
                 continue;
             }
@@ -807,7 +812,6 @@ class ContentController extends Controller
             $item->update($changes);
         }
 
-        return $changes;
     }
 
     /** @param array<string, mixed> $config */

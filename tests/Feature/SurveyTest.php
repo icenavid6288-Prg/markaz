@@ -47,8 +47,11 @@ class SurveyTest extends TestCase
         $this->registerOnSurvey($survey, [
             'name' => 'کاربر تست',
             'phone' => '09120000002',
+<<<<<<< Updated upstream
             'password' => 'password123',
             'password_confirmation' => 'password123',
+=======
+>>>>>>> Stashed changes
         ]);
 
         $this->assertAuthenticated();
@@ -150,6 +153,26 @@ class SurveyTest extends TestCase
         $this->assertNull($response->answers[(string) $questions[0]->id]);
     }
 
+    public function test_legacy_single_answer_payload_is_persisted_and_shown_in_results(): void
+    {
+        $survey = $this->makeSurvey([
+            'status' => 'published',
+            'persline_type' => 'ads',
+            'settings' => ['registration_after' => 999],
+        ]);
+        $question = $survey->questions()->first();
+        $this->get('/survey/'.$survey->share_token);
+
+        $this->post('/survey/'.$survey->share_token.'/answer', [
+            'question_id' => $question->id,
+            'answer' => 'والد',
+        ])->assertRedirect();
+
+        $response = SurveyResponse::firstOrFail();
+        $this->assertSame('والد', $response->answers[(string) $question->id]);
+        $this->assertSame('والد', app(\App\Support\SurveyResults::class)->presentResponse($response, $survey->questions)['answers'][0]['value']);
+    }
+
     public function test_answers_survive_registration_and_user_can_complete_survey(): void
     {
         $survey = $this->makeSurvey(['status' => 'published', 'settings' => ['registration_after' => 2]]);
@@ -172,8 +195,11 @@ class SurveyTest extends TestCase
         $this->registerOnSurvey($survey, [
             'name' => 'کاربر نظرسنجی',
             'phone' => '09120000001',
+<<<<<<< Updated upstream
             'password' => 'password123',
             'password_confirmation' => 'password123',
+=======
+>>>>>>> Stashed changes
         ]);
 
         $this->assertAuthenticated();
@@ -282,6 +308,30 @@ class SurveyTest extends TestCase
                 ->where('visibleTotal', 4));
     }
 
+<<<<<<< Updated upstream
+=======
+    public function test_zero_registration_after_is_preserved_as_registration_before_questions(): void
+    {
+        $admin = User::factory()->create();
+        $admin->assignRole('admin');
+
+        $this->actingAs($admin)->post('/admin/persline', [
+            'persline_type' => 'ads',
+            'title' => 'فرم ثبت‌نام ابتدایی',
+            'status' => 'published',
+            'settings' => ['registration_after' => 0],
+            'questions' => [
+                ['type' => 'text', 'title' => 'سؤال اول', 'options' => [], 'is_required' => true],
+            ],
+        ])->assertRedirect();
+
+        $survey = Survey::where('title', 'فرم ثبت‌نام ابتدایی')->firstOrFail();
+        $this->assertSame(0, $survey->registrationAfter());
+        $this->get('/survey/'.$survey->share_token)
+            ->assertRedirect('/survey/'.$survey->share_token.'/register');
+    }
+
+>>>>>>> Stashed changes
     public function test_paged_mode_shows_one_question_and_blocks_skipping(): void
     {
         $survey = $this->makeSurvey([
@@ -674,7 +724,11 @@ class SurveyTest extends TestCase
         return $codepoints;
     }
 
+<<<<<<< Updated upstream
     /** @param array{name: string, phone: string, password: string, password_confirmation: string} $payload */
+=======
+    /** @param array{name: string, phone: string} $payload */
+>>>>>>> Stashed changes
     private function registerOnSurvey(Survey $survey, array $payload): void
     {
         $this->post('/survey/'.$survey->share_token.'/register', $payload)

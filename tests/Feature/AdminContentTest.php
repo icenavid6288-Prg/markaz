@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\BlogPost;
 use App\Models\Course;
 use App\Models\Service;
 use App\Models\TeamMember;
@@ -46,6 +47,65 @@ class AdminContentTest extends TestCase
         $this->assertFileExists(public_path(ltrim($course->thumbnail, '/')));
 
         @unlink(public_path(ltrim($course->thumbnail, '/')));
+    }
+
+    public function test_editor_can_upload_article_thumbnail_and_body_image(): void
+    {
+        $editor = User::factory()->create();
+        $editor->assignRole('editor');
+
+        $this->actingAs($editor)
+            ->post('/admin/content/blog', [
+                'title' => 'مقاله تصویری',
+                'slug' => 'image-article',
+                'excerpt' => 'خلاصه مقاله تصویری',
+                'body' => "مقدمه مقاله\n\nادامه مقاله",
+                'cover_image' => UploadedFile::fake()->create('thumbnail.jpg', 100, 'image/jpeg'),
+                'article_image' => UploadedFile::fake()->create('article.png', 100, 'image/png'),
+                'status' => 'draft',
+                'is_featured' => false,
+            ])
+            ->assertRedirect('/admin/content/blog');
+
+        $post = BlogPost::where('slug', 'image-article')->firstOrFail();
+        $this->assertStringStartsWith('/images/blog-'.$post->id.'-cover_image.', $post->cover_image);
+        $this->assertStringStartsWith('/images/blog-'.$post->id.'-article_image.', $post->article_image);
+        $this->assertFileExists(public_path(ltrim($post->cover_image, '/')));
+        $this->assertFileExists(public_path(ltrim($post->article_image, '/')));
+
+        $coverImage = $post->cover_image;
+        $articleImage = $post->article_image;
+        $this->actingAs($editor)
+            ->put("/admin/content/blog/{$post->id}", [
+                'title' => 'مقاله تصویری',
+                'slug' => 'image-article',
+                'excerpt' => 'خلاصه به‌روزشده',
+                'body' => 'متن جدید',
+                'status' => 'draft',
+                'is_featured' => false,
+            ])
+            ->assertRedirect('/admin/content/blog');
+
+        $this->assertSame($coverImage, $post->fresh()->cover_image);
+        $this->assertSame($articleImage, $post->fresh()->article_image);
+
+        $this->actingAs($editor)
+            ->put("/admin/content/blog/{$post->id}", [
+                'title' => 'مقاله تصویری',
+                'slug' => 'image-article',
+                'excerpt' => 'خلاصه به‌روزشده',
+                'body' => 'متن جدیدتر',
+                'cover_image' => '',
+                'article_image' => '',
+                'status' => 'draft',
+                'is_featured' => false,
+            ])
+            ->assertRedirect('/admin/content/blog');
+
+        $this->assertNull($post->fresh()->cover_image);
+        $this->assertNull($post->fresh()->article_image);
+        $this->assertFileDoesNotExist(public_path(ltrim($coverImage, '/')));
+        $this->assertFileDoesNotExist(public_path(ltrim($articleImage, '/')));
     }
 
     public function test_admin_can_manage_public_services_from_content_studio(): void

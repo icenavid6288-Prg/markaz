@@ -9,6 +9,7 @@ import {
     Gift,
     Globe,
     Headphones,
+    Heart,
     LayoutDashboard,
     LifeBuoy,
     LogOut,

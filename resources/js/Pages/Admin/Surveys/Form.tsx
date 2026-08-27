@@ -5,7 +5,7 @@ import AdminLayout from '@/Layouts/AdminLayout';
 import { Button } from '@/Components/ui/Button';
 import type { PageProps } from '@/types';
 
-interface Question { type: string; title: string; description: string; options: string[]; is_required: boolean; include_in_summary?: boolean; }
+interface Question { id?: number; type: string; title: string; description: string; options: string[]; is_required: boolean; include_in_summary?: boolean; }
 interface Settings { registration_after: number; show_progress: boolean; randomize_questions: boolean; allow_multiple_responses: boolean; allow_back_navigation: boolean; collect_name: boolean; collect_phone: boolean; completion_redirect: string; summary_intro: string; summary_outro: string; }
 interface Survey { id: number; title: string; share_token: string; share_url: string; description: string | null; welcome_message: string | null; completion_message: string | null; status: string; settings: Settings; starts_at: string | null; ends_at: string | null;    eitaa_scheduled_at: string | null; eitaa_published_at: string | null; eitaa_summary_sent_at: string | null; questions: Question[]; responses?: Array<{ id: number; status: string; answered_count: number; user?: { name: string; phone?: string | null } | null; created_at: string; completed_at?: string | null; answers?: Array<{ question_id: number; title: string; value: string }> }>; }
 const defaults: Settings = { registration_after: 3, show_progress: true, randomize_questions: false, allow_multiple_responses: false, allow_back_navigation: true, collect_name: true, collect_phone: true, completion_redirect: '', summary_intro: '', summary_outro: '' };

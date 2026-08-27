@@ -28,7 +28,8 @@ interface CartProps {
 }
 
 export default function CartIndex() {
-    const { items, totals, auth } = usePage<PageProps & CartProps>().props;
+    const { items, totals, auth, coupon = null } = usePage<PageProps & CartProps>().props;
+    const [couponCode, setCouponCode] = useState('');
     const [quantities, setQuantities] = useState<Record<number, number>>(() => Object.fromEntries(items.map((item) => [item.id, item.quantity])));
 
     useEffect(() => {

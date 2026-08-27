@@ -1,6 +1,6 @@
 import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
 import { Link, router, usePage } from '@inertiajs/react';
-import { Award, Bell, BookOpen, CalendarDays, ChevronLeft, ClipboardList, Gift, Globe, Headphones, LayoutDashboard, LifeBuoy, LogOut, Menu, Route, Settings, ShoppingBag, Target, UserRound, X, } from 'lucide-react';
+import { Award, Bell, BookOpen, CalendarDays, ChevronLeft, ClipboardList, Gift, Globe, Headphones, Heart, LayoutDashboard, LifeBuoy, LogOut, Menu, Route, Settings, ShoppingBag, Target, UserRound, X, } from 'lucide-react';
 import { useState } from 'react';
 import BrandLogo from '@/Components/BrandLogo';
 import ThemeToggle from '@/Components/ThemeToggle';

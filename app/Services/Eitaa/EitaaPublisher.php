@@ -85,7 +85,7 @@ class EitaaPublisher
             $lines[] = '';
             $lines[] = "❓ {$question->title}";
 
-            $answers = $responses->pluck('answers')->filter();
+            $answers = $responses->map(fn ($response) => $response->answersForQuestions($survey->questions))->filter();
             $questionKey = (string) $question->id;
 
             if (in_array($question->type, ['single', 'multiple', 'yes_no'], true)) {

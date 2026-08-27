@@ -7,6 +7,7 @@ use App\Models\Survey;
 use App\Models\User;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
 
 class PerslineLeadLinkingTest extends TestCase
@@ -82,8 +83,18 @@ class PerslineLeadLinkingTest extends TestCase
         $this->post("/survey/{$survey->share_token}/register", [
             'name' => 'ثبت‌نامی',
             'phone' => '09123456787',
+<<<<<<< Updated upstream
         ])->assertRedirect(route('survey.register', ['survey' => $survey, 'step' => 'code']));
 
+=======
+            // Legacy clients may still send these fields; they must be ignored.
+            'password' => 'legacy-password',
+            'password_confirmation' => 'different-legacy-password',
+        ])->assertRedirect(route('survey.register', ['survey' => $survey, 'step' => 'code']));
+
+        $this->assertArrayNotHasKey('password', (array) session('survey_register_data_'.$survey->id));
+
+>>>>>>> Stashed changes
         $code = session('survey_register_dev_code');
         $this->assertNotNull($code);
         $this->post("/survey/{$survey->share_token}/register/verify", [
@@ -93,6 +104,7 @@ class PerslineLeadLinkingTest extends TestCase
 
         $user = User::where('phone', '09123456787')->firstOrFail();
         $lead = Lead::where('phone', '09123456787')->firstOrFail();
+        $this->assertFalse(Hash::check('legacy-password', $user->password));
         $this->assertSame('ثبت‌نامی', $lead->name);
         $this->assertSame('registration', $lead->source);
         $this->assertSame($user->id, $lead->user_id);

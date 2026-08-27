@@ -31,7 +31,30 @@ class AdminAccessTest extends TestCase
             ->assertInertia(fn ($page) => $page->component('Auth/AdminLogin'));
     }
 
-    public function test_admin_login_sends_an_sms_code_and_rejects_passwords(): void
+    public function test_admin_login_rejects_invalid_password(): void
+    {
+        $admin = User::factory()->create(['password' => 'secret-password']);
+        $admin->assignRole('admin');
+
+        $this->from('/admin/login')
+            ->post('/admin/login', ['phone' => $admin->phone, 'password' => 'wrong-password'])
+            ->assertSessionHasErrors('phone');
+
+        $this->assertGuest();
+    }
+
+    public function test_admin_login_authenticates_with_password_and_redirects_to_panel(): void
+    {
+        $admin = User::factory()->create(['password' => 'secret-password']);
+        $admin->assignRole('admin');
+
+        $this->post('/admin/login', ['phone' => $admin->phone, 'password' => 'secret-password'])
+            ->assertRedirect('/admin');
+
+        $this->assertAuthenticatedAs($admin);
+    }
+
+    public function test_legacy_admin_otp_endpoint_is_no_longer_used(): void
     {
         $admin = User::factory()->create();
         $admin->assignRole('admin');
@@ -39,13 +62,9 @@ class AdminAccessTest extends TestCase
         $this->post('/admin/login', [
             'phone' => $admin->phone,
             'password' => 'password',
-            'remember' => true,
-        ])
-            ->assertRedirect(route('admin.login', ['step' => 'code'], absolute: false));
+        ])->assertSessionHasErrors('password');
 
         $this->assertGuest();
-        $this->assertDatabaseHas('phone_login_tokens', ['phone' => $admin->phone]);
-        $this->assertNotNull(session('admin_login_dev_code'));
     }
 
     public function test_admin_can_verify_the_sms_code_and_enter_the_panel(): void

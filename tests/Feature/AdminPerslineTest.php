@@ -84,6 +84,40 @@ class AdminPerslineTest extends TestCase
         $this->assertSame('name', $survey->questions()->where('title', 'نام و نام خانوادگی')->value('settings')['lead_key'] ?? null);
     }
 
+    public function test_admin_update_preserves_question_ids_for_existing_answers(): void
+    {
+        $admin = User::factory()->create();
+        $admin->assignRole('admin');
+        $form = Survey::create([
+            'title' => 'فرم پاسخ‌دار',
+            'persline_type' => 'ads',
+            'status' => 'published',
+            'settings' => ['registration_after' => 0],
+        ]);
+        $question = $form->questions()->create(['type' => 'single', 'title' => 'سؤال اول', 'options' => ['بله'], 'sort_order' => 0]);
+        $form->responses()->create([
+            'session_token' => Str::random(32),
+            'status' => 'completed',
+            'answers' => [(string) $question->id => 'بله'],
+            'answered_count' => 1,
+            'completed_at' => now(),
+        ]);
+
+        $this->actingAs($admin)->put("/admin/persline/{$form->share_token}", [
+            'persline_type' => 'ads',
+            'title' => 'فرم پاسخ‌دار',
+            'status' => 'published',
+            'settings' => ['registration_after' => 0],
+            'questions' => [
+                ['id' => $question->id, 'type' => 'single', 'title' => 'سؤال ویرایش‌شده', 'options' => ['بله', 'خیر'], 'is_required' => true],
+            ],
+        ])->assertSessionHas('success');
+
+        $this->assertSame($question->id, $form->questions()->firstOrFail()->id);
+        $this->actingAs($admin)->get("/admin/persline/{$form->share_token}/responses")
+            ->assertInertia(fn ($page) => $page->where('responses.data.0.answers.0.value', 'بله'));
+    }
+
     public function test_admin_can_update_a_form_and_replace_its_questions(): void
     {
         $admin = User::factory()->create();
@@ -193,6 +227,33 @@ class AdminPerslineTest extends TestCase
         $this->assertStringContainsString('۱۵–۱۶', $csv);
     }
 
+<<<<<<< Updated upstream
+=======
+    public function test_legacy_answer_ids_are_mapped_to_current_questions_in_results(): void
+    {
+        $admin = User::factory()->create();
+        $admin->assignRole('admin');
+        $form = $this->makeForm(['status' => 'published']);
+        $oldQuestion = $form->questions()->firstOrFail();
+        $response = $form->responses()->create([
+            'session_token' => Str::random(32),
+            'status' => 'completed',
+            'answers' => [(string) $oldQuestion->id => '۱۵–۱۶'],
+            'answered_count' => 1,
+            'completed_at' => now(),
+        ]);
+
+        $oldQuestion->delete();
+        $form->questions()->create(['type' => 'single', 'title' => 'سن فرزند؟', 'options' => ['۱۳–۱۴', '۱۵–۱۶'], 'sort_order' => 0]);
+
+        $this->actingAs($admin)
+            ->get("/admin/persline/{$form->share_token}/responses")
+            ->assertInertia(fn ($page) => $page
+                ->where('responses.data.0.id', $response->id)
+                ->where('responses.data.0.answers.0.value', '۱۵–۱۶'));
+    }
+
+>>>>>>> Stashed changes
     public function test_admin_can_attach_a_poster_to_the_form(): void
     {
         $admin = User::factory()->create();

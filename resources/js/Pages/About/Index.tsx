@@ -1,6 +1,7 @@
 import { Link, usePage } from '@inertiajs/react';
 import { ArrowLeft, Award, BriefcaseBusiness, GraduationCap, HeartHandshake, Route, Star, Target, UsersRound } from 'lucide-react';
 import type { ReactNode } from 'react';
+import SectionMedia from '@/Components/SectionMedia';
 import { PageHeader } from '@/Components/ui/PageHeader';
 import { StatCard } from '@/Components/ui/StatCard';
 import { formatNumber } from '@/lib/format';
@@ -82,7 +83,7 @@ function TeamCard({ member, kind }: { member: TeamMember; kind: 'instructor' | '
 }
 
 export default function AboutIndex() {
-    const { stats, founder, instructors, coaches, services, testimonials, course_count } = usePage<
+    const { pageContent, stats, founder, instructors, coaches, services, testimonials, course_count } = usePage<
         PageProps & {
             stats: Array<{ value: number; suffix: string; label: string }>;
             founder: FounderData | null;
@@ -94,6 +95,9 @@ export default function AboutIndex() {
         }
     >().props;
 
+    const pageFields = pageContent?.fields ?? {};
+    const media = (key: string) => pageFields[key]?.value?.trim() || '';
+
     return (
         <div>
             <PageHeader
@@ -103,6 +107,7 @@ export default function AboutIndex() {
             />
 
             <section className="relative overflow-hidden bg-white py-12 md:py-16">
+                <SectionMedia video={media('intro_video')} image={media('intro_image')} className="mx-auto mb-8 w-full max-w-3xl" />
                 <div className="ambient ambient-green ambient-a" aria-hidden />
                 <div className="container-site relative grid items-center gap-10 lg:grid-cols-[0.9fr_1.1fr]">
                     <div className="relative mx-auto w-full max-w-md">
@@ -175,6 +180,7 @@ export default function AboutIndex() {
 
             <section className="relative overflow-hidden bg-white py-12 md:py-16">
                 <div className="ambient ambient-teal ambient-a" aria-hidden />
+                <SectionMedia video={media('mission_video')} image={media('mission_image')} className="container-site relative mx-auto w-full max-w-3xl" />
                 <div className="container-site relative grid gap-10 lg:grid-cols-2">
                     <div>
                         <div className="hero-kicker"><span className="hero-kicker-line" /><span>ارزش‌های ما</span></div>
@@ -201,6 +207,7 @@ export default function AboutIndex() {
                 <section className="relative overflow-hidden bg-soft-gray py-12 md:py-16">
                     <div className="ambient ambient-green ambient-a" aria-hidden />
                     <div className="container-site relative">
+                        <SectionMedia video={media('team_video')} image={media('team_image')} className="mx-auto mb-8 w-full max-w-3xl" />
                         <div className="hero-kicker"><span className="hero-kicker-line" /><span>تیم متخصص ما</span></div>
                         <div className="flex flex-wrap items-end justify-between gap-3">
                             <h2 className="mt-3 text-2xl font-black text-navy">آدم‌هایی که کنار شما هستند</h2>
@@ -216,6 +223,7 @@ export default function AboutIndex() {
                 <section className="relative overflow-hidden bg-white py-12 md:py-16">
                     <div className="ambient ambient-gold ambient-a" aria-hidden />
                     <div className="container-site relative">
+                        <SectionMedia video={media('testimonials_video')} image={media('testimonials_image')} className="mx-auto mb-8 w-full max-w-3xl" />
                         <div className="hero-kicker"><span className="hero-kicker-line" /><span>اعتماد خانواده‌ها</span></div>
                         <h2 className="mt-3 text-2xl font-black text-navy">آنها چه می‌گویند؟</h2>
                         <div className="mt-8 grid gap-5 md:grid-cols-3">

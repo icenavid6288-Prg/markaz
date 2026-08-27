@@ -94,7 +94,6 @@ class PerslineController extends Controller
             $questions = $data['questions'];
             unset($data['questions']);
             $survey->update($data);
-            $survey->questions()->delete();
             $this->syncQuestions($survey, $questions);
         });
         $this->storePoster($request, $survey->fresh() ?? $survey);
@@ -205,6 +204,7 @@ class PerslineController extends Controller
             'settings.summary_outro' => ['nullable', 'string', 'max:2000'],
             'eitaa_scheduled_at' => ['nullable', 'date'],
             'questions' => ['nullable', 'array', 'max:100'],
+            'questions.*.id' => ['nullable', 'integer'],
             'questions.*.type' => ['required', 'in:single,multiple,text,textarea,number,rating,yes_no'],
             'questions.*.title' => ['required', 'string', 'max:2000'],
             'questions.*.description' => ['nullable', 'string', 'max:2000'],
@@ -260,6 +260,7 @@ class PerslineController extends Controller
                 }
 
                 return [
+                    'id' => isset($question['id']) && is_numeric($question['id']) ? (int) $question['id'] : null,
                     'type' => $type,
                     'title' => trim((string) ($question['title'] ?? '')),
                     'description' => filled($question['description'] ?? null) ? trim((string) $question['description']) : null,
@@ -428,8 +429,16 @@ class PerslineController extends Controller
     /** @param array<int, array<string, mixed>> $questions */
     private function syncQuestions(Survey $survey, array $questions): void
     {
+        $existing = $survey->questions()->get()->keyBy('id');
+        $hasExplicitIds = collect($questions)->contains(fn (array $question) => filled($question['id'] ?? null));
+        $usedIds = [];
+
         foreach ($questions as $index => $question) {
-            $survey->questions()->create([
+            $questionId = $hasExplicitIds && isset($question['id']) ? (int) $question['id'] : null;
+            $model = $questionId > 0 && $existing->has($questionId)
+                ? $existing->get($questionId)
+                : (! $hasExplicitIds ? $existing->values()->get($index) : null);
+            $attributes = [
                 'type' => $question['type'],
                 'title' => $question['title'],
                 'description' => $question['description'] ?? null,
@@ -438,8 +447,21 @@ class PerslineController extends Controller
                 'is_required' => (bool) ($question['is_required'] ?? true),
                 'include_in_summary' => (bool) ($question['include_in_summary'] ?? true),
                 'sort_order' => $index,
-            ]);
+            ];
+
+            if ($model) {
+                $model->update($attributes);
+                $usedIds[] = $model->id;
+            } else {
+                $usedIds[] = $survey->questions()->create($attributes)->id;
+            }
         }
+
+        $query = $survey->questions();
+        if ($usedIds !== []) {
+            $query->whereNotIn('id', $usedIds);
+        }
+        $query->delete();
     }
 
     /** @return array<string, mixed> */
@@ -477,6 +499,7 @@ class PerslineController extends Controller
 
         if ($withQuestions) {
             $data['questions'] = $survey->questions->map(fn (SurveyQuestion $question) => [
+                'id' => $question->id,
                 'type' => $question->type,
                 'title' => $question->title,
                 'description' => $question->description,

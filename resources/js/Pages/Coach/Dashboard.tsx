@@ -12,8 +12,13 @@ interface Slot { id: number; date?: string | null; start_time: string; end_time:
 
 export default function CoachDashboard() {
     const { profile, stats, sessions, goals, students = [], availability = [] } = usePage<PageProps & { profile: { name: string; avatar?: string | null; bio?: string | null; coach?: { specialty?: string | null; experience_years?: number | null; rating?: number | null; is_available?: boolean } | null }; stats: { students: number; upcoming_sessions: number; completed_sessions: number; active_goals: number }; sessions: Session[]; goals: Goal[]; students?: StudentOption[]; availability?: Slot[] }>().props;
+<<<<<<< Updated upstream
     const goalForm = useForm({ student_id: students[0]?.id ?? '', title: '', due_date: '' });
     const taskForm = useForm({ goal_id: goals[0]?.id ?? '', title: '' });
+=======
+    const goalForm = useForm({ student_id: String(students[0]?.id ?? ''), title: '', due_date: '' });
+    const taskForm = useForm({ goal_id: String(goals[0]?.id ?? ''), title: '' });
+>>>>>>> Stashed changes
     const slotForm = useForm({ available_date: '', start_time: '10:00', end_time: '11:00', repeat_weeks: 1 });
 
     return <ProfessionalLayout role="coach"><div className="mx-auto flex max-w-7xl flex-col gap-7">

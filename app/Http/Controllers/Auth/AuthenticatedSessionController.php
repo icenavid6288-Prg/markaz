@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Auth\AdminLoginRequest;
 use App\Models\PhoneLoginToken;
 use App\Models\User;
 use App\Services\Sms\SmsSender;
@@ -42,9 +43,30 @@ class AuthenticatedSessionController extends Controller
     }
 
     /**
-     * Display the administrator OTP login (phone or code step).
+     * Display the administrator password login screen.
      */
     public function adminCreate(Request $request): Response
+    {
+        return Inertia::render('Auth/AdminLogin', [
+            'status' => session('status'),
+        ]);
+    }
+
+    /**
+     * Authenticate an administrator with the dedicated password form.
+     */
+    public function adminStore(AdminLoginRequest $request): RedirectResponse
+    {
+        $request->authenticate();
+        $request->session()->regenerate();
+
+        return redirect()->intended(route('admin.dashboard', absolute: false));
+    }
+
+    /**
+     * Legacy endpoint retained for existing OTP links.
+     */
+    public function adminCreateLegacy(Request $request): Response
     {
         if ($request->boolean('fresh')) {
             $request->session()->forget(['admin_login_phone', 'admin_login_dev_code']);
@@ -66,7 +88,7 @@ class AuthenticatedSessionController extends Controller
     /**
      * Send a one-time SMS code to an administrator. Passwords are never accepted.
      */
-    public function adminStore(Request $request, SmsSender $sms): RedirectResponse
+    public function adminStoreOtp(Request $request, SmsSender $sms): RedirectResponse
     {
         $request->validate([
             'phone' => ['required', 'string', 'regex:/^09\d{9}$/'],
@@ -387,7 +409,9 @@ class AuthenticatedSessionController extends Controller
         $request->session()->regenerate();
         Auth::login($user, $request->boolean('remember'));
 
-        return redirect()->intended(route('dashboard', absolute: false));
+        return $isModal
+            ? redirect()->to(route('dashboard', absolute: false))
+            : redirect()->intended(route('dashboard', absolute: false));
     }
 
     /**

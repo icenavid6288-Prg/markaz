@@ -228,7 +228,9 @@ class RegisteredUserController extends Controller
         $request->session()->regenerate();
         Auth::login($user);
 
-        return redirect()->intended(route('dashboard', absolute: false));
+        return $isModal
+            ? redirect()->to(route('dashboard', absolute: false))
+            : redirect()->intended(route('dashboard', absolute: false));
     }
 
     private function modalReturnUrl(Request $request): string

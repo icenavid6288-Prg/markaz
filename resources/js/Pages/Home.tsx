@@ -454,6 +454,7 @@ export default function Home() {
                         title="نگرانی‌های واقعی والدین و نوجوانان"
                         description="بیشتر خانواده‌ها این چالش‌ها را تجربه می‌کنند؛ اما تعداد کمی می‌دانند که راه‌حل علمی دارد."
                     />
+                    <SectionMedia video={media('problem_video')} image={media('problem_image')} className="mx-auto mt-8 w-full max-w-3xl" />
                     <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
                         {problems.map((p, i) => (
                             <div key={p.title} className="liquid-card group p-6">

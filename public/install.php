@@ -13,6 +13,34 @@ $root = $declaredRoot;
 $lockPath = $root.'/storage/app/installed.lock';
 $isHttps = (! empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || (($_SERVER['SERVER_PORT'] ?? '') === '443');
 
+// ---- extract-bundle endpoint (called by deploy.sh for FTP hosts) ----
+if (isset($_GET['extract-bundle']) && $_GET['extract-bundle'] === '1') {
+    header('Content-Type: text/plain; charset=utf-8');
+    $bundle = $root.'/markaz-deploy-vendor-build.tar.gz';
+    if (! is_file($bundle)) {
+        http_response_code(404);
+        echo "BUNDLE_NOT_FOUND\n";
+        exit;
+    }
+    if (! class_exists(PharData::class)) {
+        http_response_code(500);
+        echo "PHAR_MISSING\n";
+        exit;
+    }
+    try {
+        @set_time_limit(600);
+        @ini_set('memory_limit', '512M');
+        $archive = new PharData($bundle);
+        $archive->extractTo($root, null, true);
+        echo "EXTRACTED\n";
+    } catch (Throwable $exception) {
+        http_response_code(500);
+        echo "EXTRACT_FAILED: ".$exception->getMessage()."\n";
+    }
+    exit;
+}
+// ---- end extract-bundle ----
+
 // Self-heal module: rewrites outdated copies of installer-critical files that
 // shared hosts may still carry in a MySQL-incompatible form (see the file).
 require __DIR__.'/install-selfheal.php';
@@ -394,6 +422,49 @@ function runMigrationsWithRecovery(object $app, object $kernel, string $root): a
 }
 
 /**
+ * Ensures vendor/autoload.php exists on the host.
+ *
+ * Shared hosts often receive the project without the (large) vendor/ folder,
+ * which makes the installer fail with "پوشه vendor موجود نیست" and blocks a
+ * user without SSH/Composer. To fix that, a prebuilt archive
+ * (markaz-deploy-vendor-build.tar.gz) can be dropped into the project root;
+ * the installer extracts it here, so the user only has to upload one file and
+ * reload the page. Falls back to a clear manual instruction when the archive
+ * is missing or the host cannot extract it.
+ */
+function ensureVendorBundle(string $root): ?string
+{
+    $autoload = $root.'/vendor/autoload.php';
+    if (is_file($autoload)) {
+        return null;
+    }
+
+    $bundle = $root.'/markaz-deploy-vendor-build.tar.gz';
+    if (! is_file($bundle)) {
+        return 'پوشه vendor موجود نیست. فایل markaz-deploy-vendor-build.tar.gz را در ریشه پروژه آپلود کنید (نصب‌کننده خودش آن را استخراج می‌کند)، یا composer install را روی هاست اجرا کنید و دوباره نصب را شروع کنید.';
+    }
+
+    if (! class_exists(PharData::class)) {
+        return 'بسته vendor پیدا شد اما افزونه Phar در PHP هاست غیرفعال است. پوشه vendor را دستی از فایل markaz-deploy-vendor-build.tar.gz استخراج و در ریشه پروژه آپلود کنید، یا composer install را اجرا کنید.';
+    }
+
+    try {
+        @set_time_limit(600);
+        @ini_set('memory_limit', '512M');
+        $archive = new PharData($bundle);
+        $archive->extractTo($root, null, true);
+    } catch (Throwable $exception) {
+        return 'استخراج خودکار بسته vendor ناموفق بود: '.$exception->getMessage().' — پوشه vendor را دستی استخراج و آپلود کنید یا composer install را روی هاست اجرا کنید.';
+    }
+
+    if (! is_file($autoload)) {
+        return 'بسته vendor استخراج شد اما vendor/autoload.php ساخته نشد؛ مطمئن شوید vendor مستقیماً در ریشه پروژه (کنار artisan) قرار می‌گیرد.';
+    }
+
+    return null;
+}
+
+/**
  * Runs migrations, seeds and the admin creation inside the same request,
  * without calling the shell. This works on shared hosts where proc_open,
  * exec and the CLI SAPI are disabled (the old version failed there with
@@ -401,13 +472,11 @@ function runMigrationsWithRecovery(object $app, object $kernel, string $root): a
  */
 function installInProcess(string $root, array $data): array
 {
-    $autoload = vendorAutoloadPath($root);
-    if (! is_file($autoload)) {
-        [$ok, $composerOutput] = runComposerInstall($root);
-        if (! $ok || ! is_file($autoload)) {
-            return [1, $composerOutput];
-        }
+    $vendorError = ensureVendorBundle($root);
+    if ($vendorError !== null) {
+        return [1, $vendorError];
     }
+    $autoload = $root.'/vendor/autoload.php';
 
     try {
         @set_time_limit(300); // some shared hosts kill long migration runs
@@ -512,6 +581,13 @@ if (file_exists($lockPath)) {
         }
     } else {
         $form['database'] = $root.'/database/database.sqlite';
+    }
+
+    if ($errors === []) {
+        $vendorError = ensureVendorBundle($root);
+        if ($vendorError !== null) {
+            $errors[] = $vendorError;
+        }
     }
 
     if ($errors === []) {
@@ -633,6 +709,7 @@ $requirements = [
     ['label' => 'پوشه vendor (کتابخانه‌های PHP)', 'ok' => $vendorReady],
     ['label' => 'پوشه storage قابل نوشتن', 'ok' => is_writable($root.'/storage')],
     ['label' => 'پوشه bootstrap/cache قابل نوشتن', 'ok' => is_writable($root.'/bootstrap/cache')],
+    ['label' => 'پوشه vendor', 'ok' => is_file($root.'/vendor/autoload.php') || is_file($root.'/markaz-deploy-vendor-build.tar.gz')],
 ];
 $hasRequirements = ! in_array(false, array_column($requirements, 'ok'), true);
 ?>

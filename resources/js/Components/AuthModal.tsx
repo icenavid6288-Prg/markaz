@@ -1,4 +1,4 @@
-import { Link, useForm } from '@inertiajs/react';
+import { Link, router, useForm } from '@inertiajs/react';
 import BrandLogo from '@/Components/BrandLogo';
 import {
     ArrowLeft,
@@ -87,26 +87,34 @@ export default function AuthModal({
 
         if (isLogin) {
             form.post(isCodeStep ? route('login.verify.store') : route('login'), {
-                preserveScroll: true,
-                preserveState: true,
+                preserveScroll: !isCodeStep,
+                preserveState: !isCodeStep,
                 onSuccess: () => {
                     if (!isCodeStep) {
                         setStep('code');
                         setResendSeconds(60);
+                        return;
                     }
+
+                    onClose();
+                    router.visit(route('dashboard'), { replace: true });
                 },
             });
             return;
         }
 
         form.post(isCodeStep ? route('register.verify.store') : route('register'), {
-            preserveScroll: true,
-            preserveState: true,
+            preserveScroll: !isCodeStep,
+            preserveState: !isCodeStep,
             onSuccess: () => {
                 if (!isCodeStep) {
                     setStep('code');
                     setResendSeconds(60);
+                    return;
                 }
+
+                onClose();
+                router.visit(route('dashboard'), { replace: true });
             },
         });
     };
@@ -365,19 +373,5 @@ function Field({
             {children}
             {error && <p className="mt-1.5 text-xs font-bold text-red-600">{error}</p>}
         </div>
-    );
-}
-
-function PasswordToggle({ show, onClick }: { show: boolean; onClick: () => void }) {
-    return (
-        <button
-            type="button"
-            onClick={onClick}
-            className="absolute left-3 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-lg text-navy/35 transition-colors hover:text-brand-700"
-            aria-label={show ? 'پنهان کردن رمز عبور' : 'نمایش رمز عبور'}
-            tabIndex={-1}
-        >
-            {show ? <EyeOff className="size-4" aria-hidden /> : <Eye className="size-4" aria-hidden />}
-        </button>
     );
 }

@@ -1,5 +1,5 @@
 import { Link, useForm, usePage } from '@inertiajs/react';
-import { ArrowLeft, CalendarDays, Clock3, Newspaper, PlayCircle, Share2, UserRound } from 'lucide-react';
+import { ArrowLeft, BookOpen, CalendarDays, CheckCircle2, Clock3, Eye, List, Newspaper, PlayCircle, Share2, Sparkles, UserRound } from 'lucide-react';
 import { useRef, type ReactNode } from 'react';
 import { ReadingProgress } from '@/Components/ReadingProgress';
 import SectionMedia, { resolveVideoUrl } from '@/Components/SectionMedia';
@@ -15,6 +15,7 @@ interface PostData {
     excerpt?: string | null;
     body?: string | null;
     cover_image?: string | null;
+    article_image?: string | null;
     video_url?: string | null;
     reading_time?: number | null;
     views_count?: number | null;
@@ -22,8 +23,15 @@ interface PostData {
     author?: { name?: string } | null;
 }
 
+interface CommentData {
+    id: number;
+    body: string;
+    name: string;
+}
+
 export default function BlogShow() {
-    const { post, related } = usePage<PageProps & { post: PostData; related: PostData[] }>().props;
+    const { post, related, auth, comments = [] } = usePage<PageProps & { post: PostData; related: PostData[]; comments?: CommentData[] }>().props;
+    const commentForm = useForm({ body: '' });
     const articleRef = useRef<HTMLElement>(null);
 
     const share = () => {
@@ -34,7 +42,12 @@ export default function BlogShow() {
         }
     };
 
-    const paragraphs = (post.body ?? '').split(/\n{2,}/).filter(Boolean);
+    const contentBlocks = (post.body ?? '').split(/\n{2,}/).map((block) => block.trim()).filter(Boolean).map((text) => {
+        if (/^#{1,3}\s+/.test(text)) return { type: 'heading' as const, text: text.replace(/^#{1,3}\s+/, '') };
+        if (/^[-*]\s+/.test(text)) return { type: 'tip' as const, text: text.replace(/^[-*]\s+/, '') };
+        return { type: 'paragraph' as const, text };
+    });
+    const headings = contentBlocks.filter((block) => block.type === 'heading');
     const articleVideo = resolveVideoUrl(post.video_url ?? '');
 
     return (
@@ -73,9 +86,27 @@ export default function BlogShow() {
                 <div className="ambient ambient-gold ambient-b" aria-hidden />
                 <div className="container-site relative mx-auto max-w-3xl">
                     {post.cover_image && (
-                        <div className="liquid-card mb-10 overflow-hidden">
-                            <img src={post.cover_image} alt={post.title} className="aspect-video w-full object-cover" loading="lazy" />
-                        </div>
+                        <figure className="group relative mb-10 overflow-hidden rounded-[2rem] bg-deep-gradient shadow-lift">
+                            <img src={post.cover_image} alt={post.title} className="aspect-[16/8] w-full object-cover transition-transform duration-700 group-hover:scale-105" loading="eager" />
+                            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-navy/80 to-transparent p-5 pt-16 text-white">
+                                <span className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1.5 text-xs font-bold backdrop-blur"><BookOpen className="size-3.5" /> مجله مسیر رشد</span>
+                            </div>
+                        </figure>
+                    )}
+
+                    <div className="mb-10 grid gap-5 sm:grid-cols-3">
+                        <div className="rounded-2xl bg-brand-50 p-4"><Clock3 className="size-5 text-brand-600" /><div className="mt-2 text-xs font-bold text-navy/45">زمان مطالعه</div><div className="mt-1 font-black text-navy">{formatNumber(post.reading_time || 3)} دقیقه</div></div>
+                        <div className="rounded-2xl bg-amber-50 p-4"><Eye className="size-5 text-amber-600" /><div className="mt-2 text-xs font-bold text-navy/45">بازدید مقاله</div><div className="mt-1 font-black text-navy">{formatNumber(post.views_count || 0)} نفر</div></div>
+                        <div className="rounded-2xl bg-emerald-50 p-4"><Sparkles className="size-5 text-emerald-600" /><div className="mt-2 text-xs font-bold text-navy/45">یک قدم برای رشد</div><div className="mt-1 font-black text-navy">خواندنی و کاربردی</div></div>
+                    </div>
+
+                    {headings.length > 0 && (
+                        <nav className="mb-10 rounded-2xl border border-brand-100 bg-brand-50/60 p-5" aria-label="فهرست مطالب">
+                            <div className="flex items-center gap-2 text-sm font-black text-navy"><List className="size-4 text-brand-600" /> در این مقاله می‌خوانید</div>
+                            <ol className="mt-3 grid gap-2 sm:grid-cols-2">
+                                {headings.map((heading, index) => <li key={`${heading.text}-${index}`}><a href={`#article-heading-${index}`} className="text-sm font-bold text-brand-700 hover:text-brand-900">{index + 1}. {heading.text}</a></li>)}
+                            </ol>
+                        </nav>
                     )}
 
                     {articleVideo && (
@@ -94,17 +125,22 @@ export default function BlogShow() {
                         </section>
                     )}
 
-                    <article ref={articleRef} className="flex flex-col gap-6">
-                        {paragraphs.length > 0 ? (
-                            paragraphs.map((paragraph, i) => (
-                                <p key={i} className="text-base leading-9 text-navy/75">
-                                    {paragraph}
-                                </p>
-                            ))
-                        ) : (
-                            <p className="text-base leading-9 text-navy/75">{post.excerpt}</p>
+                    <article ref={articleRef} className="article-reading flex flex-col gap-6">
+                        {post.article_image && (
+                            <figure className="liquid-card overflow-hidden"><img src={post.article_image} alt={post.title} className="w-full object-cover" loading="lazy" /></figure>
                         )}
+                        {contentBlocks.length > 0 ? contentBlocks.map((block, i) => block.type === 'heading' ? (
+                            <h2 key={i} id={`article-heading-${headings.findIndex((heading) => heading === block)}`} className="scroll-mt-28 pt-5 text-xl font-black leading-9 text-navy md:text-2xl">{block.text}</h2>
+                        ) : block.type === 'tip' ? (
+                            <div key={i} className="flex gap-3 rounded-2xl border-r-4 border-brand-500 bg-brand-50 p-5 text-sm font-bold leading-8 text-navy/75"><CheckCircle2 className="mt-1 size-5 shrink-0 text-brand-600" />{block.text}</div>
+                        ) : (
+                            <p key={i} className="text-base leading-9 text-navy/75">{block.text}</p>
+                        )) : <p className="text-base leading-9 text-navy/75">{post.excerpt}</p>}
                     </article>
+
+                    <div className="mt-10 rounded-[2rem] bg-deep-gradient p-6 text-white shadow-lift md:p-8">
+                        <div className="flex items-start gap-4"><span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-brand-400/20"><Sparkles className="size-5 text-brand-200" /></span><div><div className="text-xs font-black text-brand-200">حرف آخر</div><p className="mt-2 text-sm leading-8 text-white/75">هر تغییر بزرگی با یک قدم کوچک شروع می‌شود. اگر این مقاله برایتان مفید بود، آن را با یک نفر که به این مسیر نیاز دارد به اشتراک بگذارید.</p></div></div>
+                    </div>
 
                     <section className="mt-12 border-t border-navy/10 pt-8">
                         <h2 className="text-lg font-black text-navy">نظرات</h2>

@@ -38,5 +38,15 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        //
+        $exceptions->respond(function (\Symfony\Component\HttpFoundation\Response $response, \Throwable $exception, \Illuminate\Foundation\Application $app): \Symfony\Component\HttpFoundation\Response {
+            if ($app->bound('inertia') && $response->getStatusCode() >= 400) {
+                $request = $app->make(\Illuminate\Http\Request::class);
+                $status = $response->getStatusCode();
+                $component = $status === 404 ? 'NotFound' : 'Error';
+
+                return \Inertia\Inertia::render($component, ['status' => $status])->toResponse($request);
+            }
+
+            return $response;
+        });
     })->create();
