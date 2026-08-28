@@ -1,44 +1,54 @@
-name: Deploy to Production
+name: Build deployment package
 
 on:
   push:
     branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
-  deploy:
+  package:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
         with:
-          host: ${{ secrets.DEPLOY_HOST }}
-          username: ${{ secrets.DEPLOY_USER }}
-          key: ${{ secrets.DEPLOY_KEY }}
-          script: |
-            cd ${{ secrets.DEPLOY_PATH }}
+          php-version: '8.2'
+          extensions: mbstring, dom, fileinfo, openssl, pdo, pdo_mysql
+          coverage: none
 
-            # Stop immediately if any deployment command fails.
-            set -e
+      - name: Install PHP dependencies
+        run: composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader
 
-            # Download the latest repository snapshot without requiring Git on the host.
-            # This also works on shared hosting where the deployment directory is not a Git clone.
-            git archive --remote=https://github.com/${{ github.repository }}.git origin/main | tar -x -C .
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
 
-            # Regenerate Laravel caches only when the host provides the needed PHP CLI tools.
-            if command -v php >/dev/null 2>&1 && [ -f artisan ]; then
-              php artisan optimize:clear
-              php artisan config:cache
-              php artisan route:cache
-              php artisan view:cache
-              php artisan event:cache
-            fi
+      - name: Build frontend
+        run: |
+          npm ci
+          npm run build
 
-            # Migrations are optional and disabled unless explicitly enabled.
-            if [ "${{ secrets.RUN_MIGRATIONS }}" = "true" ] && command -v php >/dev/null 2>&1 && [ -f artisan ]; then
-              php artisan migrate --force
-            fi
+      - name: Create deployment archive
+        run: |
+          rm -rf deployment
+          mkdir deployment
+          rsync -a --exclude='.git' --exclude='.github' --exclude='node_modules' --exclude='tests' --exclude='storage/logs/*' ./ deployment/
+          mkdir -p deployment/storage/logs deployment/storage/framework/cache deployment/storage/framework/sessions deployment/storage/framework/views
+          cd deployment
+          zip -r ../markaz-deployment-${GITHUB_SHA::7}.zip . -x '*.DS_Store'
 
-            # Shared hosting may not allow chmod; permissions are best-effort.
-            chmod -R 775 storage bootstrap/cache 2>/dev/null || true
-
-            echo "✅ Deployment complete!"
+      - name: Upload deployment package
+        uses: actions/upload-artifact@v4
+        with:
+          name: markaz-deployment-${{ github.sha }}
+          path: markaz-deployment-*.zip
+          retention-days: 14
