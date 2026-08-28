@@ -17,27 +17,30 @@ jobs:
           script: |
             cd ${{ secrets.DEPLOY_PATH }}
 
-            # Pull latest code
-            git pull origin main
+            # Stop immediately if any deployment command fails.
+            set -e
 
-            # Install PHP dependencies
-            composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader
+            # Make the server match the exact commit currently on GitHub.
+            # This avoids pull conflicts caused by local files on shared hosting.
+            git fetch origin main
+            git reset --hard origin/main
 
-            # Install & build frontend assets
-            npm ci --production=false
-            npm run build
+            # Dependencies and production frontend assets are committed to the repository.
+            # Shared hosting does not need Composer or Node/npm during deployment.
 
-            # Laravel optimizations
+            # Clear stale cached configuration and rebuild Laravel caches.
+            php artisan optimize:clear
             php artisan config:cache
             php artisan route:cache
             php artisan view:cache
             php artisan event:cache
 
-            # Run migrations (safe — skips already-run migrations)
-            php artisan migrate --force
+            # Migrations are optional on shared hosting; run only when explicitly enabled.
+            if [ "${{ secrets.RUN_MIGRATIONS }}" = "true" ]; then
+              php artisan migrate --force
+            fi
 
-            # Fix permissions
-            chmod -R 775 storage bootstrap/cache
-            chown -R www-data:www-data storage bootstrap/cache
+            # Shared hosting may not allow chown; chmod is best-effort.
+            chmod -R 775 storage bootstrap/cache || true
 
             echo "✅ Deployment complete!"
