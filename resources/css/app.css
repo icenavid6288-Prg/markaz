@@ -3780,6 +3780,23 @@ html.dark .profile-danger {
     .profile-danger { border-radius: 1.35rem; }
 }
 
+/* Blog listing keeps a clean editorial background instead of inheriting dark page surfaces. */
+.blog-index-content {
+    isolation: isolate;
+    background:
+        radial-gradient(42rem 24rem at 8% 8%, rgb(180 229 202 / 0.22), transparent 68%),
+        radial-gradient(34rem 22rem at 92% 42%, rgb(201 162 39 / 0.10), transparent 70%),
+        linear-gradient(180deg, #ffffff 0%, #f5faf7 52%, #ffffff 100%);
+}
+
+.blog-index-content > .container-site {
+    z-index: 1;
+}
+
+.blog-index-content .liquid-card {
+    position: relative;
+}
+
 /* ── Production-friendly visual mode ──
    Keep the brand's layered green surfaces, but avoid GPU-heavy glass effects.
    Solid translucent gradients are intentionally used instead of backdrop blur,

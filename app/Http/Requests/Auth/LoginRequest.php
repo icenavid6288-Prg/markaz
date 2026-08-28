@@ -29,7 +29,6 @@ class LoginRequest extends FormRequest
     {
         return [
             'phone' => ['required', 'string', 'regex:/^09\d{9}$/'],
-            'password' => ['required', 'string'],
         ];
     }
 
@@ -42,7 +41,7 @@ class LoginRequest extends FormRequest
     {
         $this->ensureIsNotRateLimited();
 
-        if (! Auth::attempt($this->only('phone', 'password'), $this->boolean('remember'))) {
+        if (! Auth::attempt($this->only('phone'), $this->boolean('remember'))) {
             RateLimiter::hit($this->throttleKey());
 
             throw ValidationException::withMessages([

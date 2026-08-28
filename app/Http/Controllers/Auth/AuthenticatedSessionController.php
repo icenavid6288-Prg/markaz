@@ -34,7 +34,6 @@ class AuthenticatedSessionController extends Controller
         $showCodeStep = $request->query('step') === 'code' && filled($phone);
 
         return Inertia::render('Auth/Login', $this->loginProps([
-            'canResetPassword' => true,
             'step' => $showCodeStep ? 'code' : 'phone',
             'phone' => $showCodeStep ? $phone : '',
             'dev_code' => $showCodeStep && $this->otpCodeEnabled()
@@ -175,7 +174,6 @@ class AuthenticatedSessionController extends Controller
         $request->validate([
             'phone' => ['required', 'string', 'regex:/^09\d{9}$/'],
             'code' => ['required', 'string', 'size:6'],
-            'remember' => ['sometimes', 'boolean'],
         ]);
 
         $phone = $request->string('phone')->toString();
@@ -230,7 +228,7 @@ class AuthenticatedSessionController extends Controller
         $loginToken->delete();
         $request->session()->forget(['admin_login_phone', 'admin_login_dev_code']);
         $request->session()->regenerate();
-        Auth::login($user, $request->boolean('remember'));
+        Auth::login($user);
         Log::info('Admin OTP login succeeded', [
             'user_id' => $user->getKey(),
             'ip' => $request->ip(),
@@ -258,58 +256,12 @@ class AuthenticatedSessionController extends Controller
     }
 
     /**
-     * Handle password login or send a one-time SMS login code.
+     * Send a one-time SMS login code. User login never accepts passwords.
      */
     public function store(Request $request, SmsSender $sms): RedirectResponse
     {
         $phone = $request->string('phone')->toString();
-        $password = $request->input('password');
         $isModal = $request->boolean('modal');
-
-        // ── Password-based login ──
-        if (filled($password)) {
-            $request->validate([
-                'phone' => ['required', 'string', 'regex:/^09\d{9}$/'],
-                'password' => ['required', 'string'],
-            ]);
-
-            $rateKey = 'login-password:'.$phone;
-            $rateIpKey = 'login-password-ip:'.$request->ip();
-
-            if (RateLimiter::tooManyAttempts($rateKey, 5) || RateLimiter::tooManyAttempts($rateIpKey, 30)) {
-                $seconds = max(RateLimiter::availableIn($rateKey), RateLimiter::availableIn($rateIpKey));
-                $message = 'تعداد تلاش‌ها بیش از حد مجاز است. لطفاً '.ceil($seconds / 60).' دقیقه دیگر تلاش کنید.';
-
-                return $isModal
-                    ? redirect()->to($this->modalReturnUrl($request))->withErrors(['phone' => $message])
-                    : back()->withErrors(['phone' => $message])->withInput();
-            }
-
-            $user = User::where('phone', $phone)->where('is_active', true)->first();
-
-            if (! $user || ! Hash::check($password, $user->password)) {
-                RateLimiter::hit($rateKey, 300);
-                RateLimiter::hit($rateIpKey, 300);
-                $message = 'شماره موبایل یا رمز عبور صحیح نیست.';
-
-                return $isModal
-                    ? redirect()->to($this->modalReturnUrl($request))->withErrors(['phone' => $message])
-                    : back()->withErrors(['phone' => $message])->withInput();
-            }
-
-            RateLimiter::clear($rateKey);
-            RateLimiter::clear($rateIpKey);
-            $request->session()->regenerate();
-            Auth::login($user, $request->boolean('remember'));
-            Log::info('Password login succeeded', [
-                'user_id' => $user->getKey(),
-                'ip' => $request->ip(),
-            ]);
-
-            return $isModal
-                ? redirect()->to(route('dashboard', absolute: false))
-                : redirect()->intended(route('dashboard', absolute: false));
-        }
 
         // ── OTP-based login (phone only, send SMS code) ──
         $request->validate([
@@ -436,7 +388,6 @@ class AuthenticatedSessionController extends Controller
         $request->validate([
             'phone' => ['required', 'string', 'regex:/^09\d{9}$/'],
             'code' => ['required', 'string', 'size:6'],
-            'remember' => ['sometimes', 'boolean'],
         ]);
 
         $phone = $request->string('phone')->toString();
@@ -497,7 +448,7 @@ class AuthenticatedSessionController extends Controller
         $loginToken->delete();
         $request->session()->forget(['login_phone', 'login_dev_code', 'auth_modal_return_url', 'auth_modal']);
         $request->session()->regenerate();
-        Auth::login($user, $request->boolean('remember'));
+        Auth::login($user);
 
         return $isModal
             ? redirect()->to(route('dashboard', absolute: false))

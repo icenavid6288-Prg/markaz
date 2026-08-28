@@ -24,6 +24,9 @@ composer.phar
 /storage/pail
 /storage/inertia-devtools
 /.freebuff
+# فایل‌های موقتِ خراب‌نامِ ابزار دسکتاپ (Freebuff launcher/preview logs)
+*freebufflaunch.ps1
+*freebuffpreview*.log.err
 # vendor و public/build داخل مخزن هستند تا هاست اشتراکی بدون composer/npm نصب شود.
 Homestead.json
 Homestead.yaml

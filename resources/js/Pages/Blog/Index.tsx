@@ -74,7 +74,7 @@ export default function BlogIndex() {
                 subtitle="مقالات تخصصی درباره استعدادیابی، کوچینگ نوجوان، مهارت‌های آینده و تربیت؛ نوشته‌شده برای خانواده‌ها و مدرسین."
             />
 
-            <section className="relative overflow-hidden bg-gradient-to-b from-white via-brand-50/20 to-white py-12 md:py-16">
+            <section className="blog-index-content relative overflow-hidden py-12 md:py-16">
                 <div className="ambient ambient-green ambient-a" aria-hidden />
                 <div className="ambient ambient-gold ambient-b" aria-hidden />
                 <div className="container-site relative">
