@@ -48,6 +48,20 @@ class PageStudioController extends Controller
 
         $fields = $validated['fields'];
 
+        // An empty image value explicitly removes the previous image from the page.
+        foreach (PageContent::registry()[$page]['fields'] as $key => $field) {
+            if (($field['type'] ?? '') !== 'image' || (($fields[$key] ?? null) !== '' && $fields[$key] !== null)) {
+                continue;
+            }
+
+            $directory = public_path('images');
+            foreach (glob($directory.'/'.$page.'-'.$key.'.*') ?: [] as $oldFile) {
+                if (is_file($oldFile)) {
+                    @unlink($oldFile);
+                }
+            }
+        }
+
         // Image-type fields accept a file upload; store it in public/images so
         // shared hosts render it without a storage symlink (same as site settings).
         foreach (PageContent::registry()[$page]['fields'] as $key => $field) {

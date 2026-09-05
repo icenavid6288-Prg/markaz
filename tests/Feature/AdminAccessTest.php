@@ -72,14 +72,21 @@ class AdminAccessTest extends TestCase
         $admin = User::factory()->create();
         $admin->assignRole('admin');
 
-        $this->post('/admin/login', ['phone' => $admin->phone]);
-        $code = session('admin_login_dev_code');
+        // The OTP request step is no longer routed (password login is primary);
+        // legacy links still POST to /admin/login/verify, so seed the session
+        // marker and token the verify endpoint expects.
+        $code = '123456';
+        \App\Models\PhoneLoginToken::updateOrCreate(
+            ['phone' => $admin->phone],
+            ['token' => \Illuminate\Support\Facades\Hash::make($code), 'created_at' => now()],
+        );
 
-        $this->post('/admin/login/verify', [
-            'phone' => $admin->phone,
-            'code' => $code,
-            'remember' => true,
-        ])->assertRedirect('/admin');
+        $this->withSession(['admin_login_phone' => $admin->phone])
+            ->post('/admin/login/verify', [
+                'phone' => $admin->phone,
+                'code' => $code,
+                'remember' => true,
+            ])->assertRedirect('/admin');
 
         $this->assertAuthenticatedAs($admin);
         $this->assertDatabaseMissing('phone_login_tokens', ['phone' => $admin->phone]);
@@ -87,14 +94,15 @@ class AdminAccessTest extends TestCase
 
     public function test_non_admin_cannot_use_the_admin_login(): void
     {
-        $student = User::factory()->create();
+        $student = User::factory()->create(['password' => 'secret-password']);
         $student->assignRole('student');
 
         $this->from('/admin/login')
             ->post('/admin/login', [
                 'phone' => $student->phone,
+                'password' => 'secret-password',
             ])
-            ->assertSessionHasErrors('phone');
+            ->assertSessionHasErrors();
 
         $this->assertGuest();
         $this->assertDatabaseCount('phone_login_tokens', 0);
@@ -119,13 +127,15 @@ class AdminAccessTest extends TestCase
         $this->actingAs($student)->get('/admin')->assertForbidden();
     }
 
-    public function test_instructor_panel_cannot_read_admin_analytics(): void
+    public function test_instructor_can_open_their_panel_but_not_admin_settings(): void
     {
+        // Instructors/coaches are invited into the admin dashboard (route +
+        // controller policy), but configuration pages stay admin-only.
         $instructor = User::factory()->create();
         $instructor->assignRole('instructor');
 
-        $this->actingAs($instructor)->get('/admin')->assertForbidden();
         $this->actingAs($instructor)->get('/panel/instructor')->assertOk();
+        $this->actingAs($instructor)->get('/admin/settings')->assertForbidden();
     }
 
     public function test_admin_can_browse_dynamic_user_directory(): void

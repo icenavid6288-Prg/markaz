@@ -33,16 +33,31 @@ class Coupon extends Model
 
     public function isValid(int $subtotal = 0): bool
     {
-        return $this->is_active
-            && ($this->max_uses === null || $this->used_count < $this->max_uses)
-            && ($this->expires_at === null || $this->expires_at->isFuture())
-            && $subtotal >= $this->min_order;
+        $active = filter_var($this->getAttribute('is_active'), FILTER_VALIDATE_BOOLEAN);
+        $maxUses = $this->getAttribute('max_uses');
+        $usedCount = (int) ($this->getAttribute('used_count') ?? 0);
+        $minOrder = (int) ($this->getAttribute('min_order') ?? 0);
+        // Admins leave "حداکثر استفاده" empty (saved as 0) to mean unlimited.
+        $hasUsageLimit = $maxUses !== null && (int) $maxUses > 0;
+        $expiresAt = $this->expires_at;
+        // Shared-host MySQL databases often contain legacy zero dates for an
+        // empty datetime field. They mean "no expiry", not "already expired".
+        if ($expiresAt && ($expiresAt->year < 2000 || $expiresAt->format('Y-m-d') === '0000-00-00')) {
+            $expiresAt = null;
+        }
+
+        return $active
+            && (! $hasUsageLimit || $usedCount < (int) $maxUses)
+            && ($expiresAt === null || $expiresAt->isFuture())
+            && $subtotal >= $minOrder;
     }
 
     public function discountFor(int $subtotal): int
     {
+        $value = max(0, (int) $this->value);
+
         return $this->type === 'percent'
-            ? (int) round($subtotal * $this->value / 100)
-            : min($this->value, $subtotal);
+            ? min($subtotal, (int) round($subtotal * min($value, 100) / 100))
+            : min($value, $subtotal);
     }
 }

@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Models\Assignment;
 use App\Models\BlogPost;
 use App\Models\Category;
+use App\Models\Event;
 use App\Models\Course;
 use App\Models\CourseModule;
 use App\Models\Lesson;
@@ -30,6 +31,25 @@ class ContentSeeder extends Seeder
         $this->testimonials();
         $this->teamMembers();
         $this->blog();
+        $this->events();
+    }
+
+    private function events(): void
+    {
+        Event::updateOrCreate(['slug' => 'webinar-ai-future-skills'], [
+            'type' => 'webinar',
+            'title' => 'وبینار: هوش مصنوعی و مهارت‌های آینده نوجوانان',
+            'summary' => 'وبینار آنلاین درباره نقش هوش مصنوعی در آینده شغلی نوجوانان و مهارت‌هایی که باید از امروز یاد بگیرند.',
+            'description' => 'در این وبینار ۹۰ دقیقه‌ای، درباره تاثیر هوش مصنوعی بر بازار کار آینده، ابزارهای هوش مصنوعی مناسب نوجوانان و روش‌های یادگیری عملی صحبت می‌کنیم. این وبینار برای والدین و نوجوانان ۱۲ تا ۱۸ سال طراحی شده است.',
+            'speaker' => 'دکتر بیدی',
+            'event_date' => now()->subDays(7),
+            'duration_minutes' => 90,
+            'location' => 'آنلاین (زوم)',
+            'price' => 0,
+            'discount_price' => null,
+            'status' => 'published',
+            'is_featured' => true,
+        ]);
     }
 
     private function categories(): void
@@ -68,6 +88,7 @@ class ContentSeeder extends Seeder
             ['title' => 'درباره ما', 'url' => '/about', 'children' => []],
             ['title' => 'تیم ما', 'url' => '/team', 'children' => []],
             ['title' => 'تماس با ما', 'url' => '/contact', 'children' => []],
+            ['title' => 'وبینارها و سمینارها', 'url' => '/events', 'children' => []],
         ];
 
         Menu::updateOrCreate(['location' => 'header'], [
@@ -85,6 +106,7 @@ class ContentSeeder extends Seeder
                 ['title' => 'فروشگاه', 'url' => '/shop', 'children' => []],
                 ['title' => 'بلاگ', 'url' => '/blog', 'children' => []],
                 ['title' => 'تیم ما', 'url' => '/team', 'children' => []],
+                ['title' => 'وبینارها و سمینارها', 'url' => '/events', 'children' => []],
             ],
             'is_active' => true,
         ]);

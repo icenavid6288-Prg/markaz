@@ -64,6 +64,7 @@ export interface MenuItem {
 }
 
 export interface SeoData {
+    noindex?: boolean;
     title: string;
     description: string;
     keywords?: string | null;
@@ -98,6 +99,7 @@ export interface PageContentData {
 
 export interface SharedData {
     auth: { user: User };
+    csp_nonce?: string | null;
     authModal?: AuthModalState | null;
     site: SiteData;
     pageContent?: PageContentData | null;

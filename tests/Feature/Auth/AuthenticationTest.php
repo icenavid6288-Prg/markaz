@@ -31,6 +31,8 @@ class AuthenticationTest extends TestCase
 
     public function test_admin_can_login_with_phone_and_password(): void
     {
+        $this->seed(\Database\Seeders\RoleAndPermissionSeeder::class);
+
         $admin = User::factory()->create([
             'password' => Hash::make('admin-secret'),
         ]);
@@ -235,7 +237,11 @@ class AuthenticationTest extends TestCase
 
     public function test_login_test_code_is_not_exposed_in_production(): void
     {
+        // environment() reads the container binding in Laravel 11+; setting
+        // config alone would silently leave the app in the test environment.
+        $this->app['env'] = 'production';
         Config::set('app.env', 'production');
+        $this->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class);
         $user = User::factory()->create();
 
         $this->from('/courses')->post('/login', [
@@ -316,7 +322,11 @@ class AuthenticationTest extends TestCase
 
     public function test_login_shows_a_friendly_error_when_sms_sending_fails_in_production(): void
     {
+        // environment() reads the container binding in Laravel 11+; setting
+        // config alone would silently leave the app in the test environment.
+        $this->app['env'] = 'production';
         Config::set('app.env', 'production');
+        $this->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class);
         $user = User::factory()->create();
 
         Setting::set('sms_driver', 'melipayamak', 'sms');

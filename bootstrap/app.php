@@ -21,6 +21,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->web(append: [
             \App\Http\Middleware\HandleInertiaRequests::class,
+            \App\Http\Middleware\TrackAttribution::class,
             \Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets::class,
             \App\Http\Middleware\SecurityHeaders::class,
             \App\Http\Middleware\EnsureUserIsActive::class,
@@ -40,11 +41,12 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->respond(function (\Symfony\Component\HttpFoundation\Response $response, \Throwable $exception, \Illuminate\Http\Request $request): \Symfony\Component\HttpFoundation\Response {
             if ($response->getStatusCode() >= 400) {
-                $app = \Illuminate\Foundation\Application::getInstance();
                 $status = $response->getStatusCode();
                 $component = $status === 404 ? 'NotFound' : 'Error';
 
-                return \Inertia\Inertia::render($component, ['status' => $status])->toResponse($request);
+                return \Inertia\Inertia::render($component, ['status' => $status])
+                    ->toResponse($request)
+                    ->setStatusCode($status);
             }
 
             return $response;

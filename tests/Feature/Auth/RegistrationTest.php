@@ -71,7 +71,10 @@ class RegistrationTest extends TestCase
 
     public function test_registration_test_code_is_not_exposed_in_production(): void
     {
+        // environment() reads the container binding in Laravel 11+.
+        $this->app['env'] = 'production';
         Config::set('app.env', 'production');
+        $this->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class);
 
         $this->from('/')->post('/register', [
             'name' => 'Production User',

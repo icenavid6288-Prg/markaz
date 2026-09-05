@@ -18,7 +18,7 @@ import { useAuth } from '../context/AuthContext';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'CourseDetail'>;
 
-export function CourseDetailScreen({ route }: Props) {
+export function CourseDetailScreen({ route, navigation }: Props) {
     const { slug } = route.params;
     const { token } = useAuth();
     const [course, setCourse] = useState<CoursePayload | null>(null);
@@ -72,9 +72,7 @@ export function CourseDetailScreen({ route }: Props) {
             return;
         }
         if (enrolled) {
-            openSitePage(`/dashboard/courses/${course.slug}/learn`).catch((e) =>
-                Alert.alert('خطا', e instanceof ApiError ? e.message : 'خطا در باز کردن صفحه')
-            );
+            navigation.navigate('Learning', { slug: course.slug });
             return;
         }
         try {
@@ -156,7 +154,7 @@ export function CourseDetailScreen({ route }: Props) {
                                         {open ? (
                                             <View style={styles.lessonList}>
                                                 {module.lessons.map((lesson) => (
-                                                    <View key={lesson.id} style={styles.lessonRow}>
+                                                    <Pressable key={lesson.id} style={styles.lessonRow} onPress={() => lesson.is_free || enrolled ? navigation.navigate('Learning', { slug: course.slug, lessonId: lesson.id }) : Alert.alert('این درس قفل است', 'برای مشاهده این درس در دوره ثبت‌نام کنید.')}>
                                                         <Text style={styles.lessonIcon}>
                                                             {lesson.type === 'video' ? '🎬' : lesson.type === 'quiz' ? '📝' : '📄'}
                                                         </Text>
@@ -167,7 +165,7 @@ export function CourseDetailScreen({ route }: Props) {
                                                         {lesson.duration_minutes ? (
                                                             <Text style={styles.lessonDuration}>{faNum(lesson.duration_minutes)} دقیقه</Text>
                                                         ) : null}
-                                                    </View>
+                                                    </Pressable>
                                                 ))}
                                             </View>
                                         ) : null}

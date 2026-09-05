@@ -34,6 +34,11 @@ class Course extends Model
         'students_count',
         'rating_avg',
         'seo',
+        'is_in_person',
+        'location',
+        'schedule',
+        'max_students',
+        'in_person_description',
     ];
 
     protected function casts(): array
@@ -46,6 +51,9 @@ class Course extends Model
             'is_featured' => 'boolean',
             'rating_avg' => 'float',
             'seo' => 'array',
+            'is_in_person' => 'boolean',
+            'schedule' => 'array',
+            'max_students' => 'integer',
         ];
     }
 

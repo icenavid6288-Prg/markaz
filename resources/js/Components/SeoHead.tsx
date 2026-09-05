@@ -1,6 +1,8 @@
-import { Head } from '@inertiajs/react';
+import { Head, usePage } from '@inertiajs/react';
+import type { PageProps } from '@/types';
 
 export interface SeoData {
+    noindex?: boolean;
     title: string;
     description: string;
     keywords?: string | null;
@@ -15,6 +17,8 @@ function safeJson(value: Record<string, unknown>): string {
 }
 
 export function SeoHead({ seo }: { seo?: SeoData | null }) {
+    const { csp_nonce: cspNonce } = usePage<PageProps>().props;
+
     if (!seo) {
         return null;
     }
@@ -30,7 +34,7 @@ export function SeoHead({ seo }: { seo?: SeoData | null }) {
         <Head title={seo.title}>
             <meta name="description" content={seo.description} head-key="description" />
             {seo.keywords && <meta name="keywords" content={seo.keywords} head-key="keywords" />}
-            <meta name="robots" content="index, follow" head-key="robots" />
+            <meta name="robots" content={seo.noindex ? 'noindex, nofollow, noarchive' : 'index, follow'} head-key="robots" />
             <link rel="canonical" href={seo.canonical} head-key="canonical" />
 
             <meta property="og:type" content={ogType} head-key="og:type" />
@@ -47,6 +51,7 @@ export function SeoHead({ seo }: { seo?: SeoData | null }) {
 
             <script
                 type="application/ld+json"
+                nonce={cspNonce ?? undefined}
                 dangerouslySetInnerHTML={{ __html: safeJson(seo.schema) }}
                 head-key="structured-data"
             />

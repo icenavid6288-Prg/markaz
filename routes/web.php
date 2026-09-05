@@ -14,6 +14,8 @@ use App\Http\Controllers\Admin\MediaLibraryController;
 use App\Http\Controllers\Admin\OrderRefundController;
 use App\Http\Controllers\Admin\ReportExportController;
 use App\Http\Controllers\Admin\SettingsController;
+use App\Http\Controllers\Admin\InstagramController;
+use App\Http\Controllers\Admin\EitaaBotController;
 use App\Http\Controllers\Admin\SurveyController as AdminSurveyController;
 use App\Http\Controllers\SurveyController;
 use App\Http\Controllers\Admin\MarketingController;
@@ -62,11 +64,13 @@ use App\Http\Controllers\Public\CoachingController;
 use App\Http\Controllers\Public\ContactController;
 use App\Http\Controllers\Public\CourseController as PublicCourseController;
 use App\Http\Controllers\Public\ServiceController as PublicServiceController;
+use App\Http\Controllers\Public\SearchController;
 use App\Http\Controllers\Public\ShopController;
 use App\Http\Controllers\Public\TeamController;
 use App\Http\Controllers\Public\InstructorController;
 use App\Http\Controllers\Public\CoachController;
 use App\Http\Controllers\Public\CmsPageController;
+use App\Http\Controllers\Public\EventController;
 use App\Http\Controllers\CommentController;
 use App\Http\Controllers\LearningSupportController;
 use App\Http\Controllers\WishlistController;
@@ -75,7 +79,25 @@ use Illuminate\Support\Facades\Route;
 // Google Search Console prerequisites: the sitemap and robots.txt must be
 // reachable at the domain root and are registered before the storage fallback.
 Route::get('/sitemap.xml', SitemapController::class)->name('sitemap');
-Route::get('/robots.txt', fn () => response("User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /dashboard\nDisallow: /cart\nDisallow: /checkout\nDisallow: /profile\n\nSitemap: ".url('/sitemap.xml'))->header('Content-Type', 'text/plain; charset=UTF-8'))->name('robots');
+Route::get('/robots.txt', fn () => response(implode("\n", [
+    'User-agent: *',
+    'Allow: /',
+    'Disallow: /admin',
+    'Disallow: /dashboard',
+    'Disallow: /panel',
+    'Disallow: /cart',
+    'Disallow: /checkout',
+    'Disallow: /profile',
+    'Disallow: /login',
+    'Disallow: /register',
+    'Disallow: /forgot-password',
+    'Disallow: /reset-password',
+    'Disallow: /verify-email',
+    'Disallow: /confirm-password',
+    '',
+    'Sitemap: '.url('/sitemap.xml'),
+    '',
+]))->header('Content-Type', 'text/plain; charset=UTF-8')->header('Cache-Control', 'public, max-age=3600'))->name('robots');
 
 // Shared-host fallback for installations where `storage:link` is unavailable.
 // Public uploads remain under storage/app/public and private downloads never use this route.
@@ -96,6 +118,7 @@ Route::get('/blog', [BlogController::class, 'index'])->name('blog.index');
 Route::get('/blog/{post:slug}', [BlogController::class, 'show'])->name('blog.show');
 Route::get('/shop', [ShopController::class, 'index'])->name('shop.index');
 Route::get('/shop/{product:slug}', [ShopController::class, 'show'])->name('shop.show');
+Route::get('/search', SearchController::class)->middleware('throttle:30,1')->name('search');
 Route::get('/cart', [CartController::class, 'index'])->name('cart.index');
 Route::post('/cart/products/{product}', [CartController::class, 'store'])->name('cart.store');
     Route::patch('/cart/products/{product}', [CartController::class, 'update'])->name('cart.update');
@@ -108,6 +131,8 @@ Route::get('/team', [TeamController::class, 'index'])->name('team.index');
 Route::get('/instructors/{instructor}', [InstructorController::class, 'show'])->name('instructors.show');
 Route::get('/coaches/{coach}', [CoachController::class, 'show'])->name('coaches.show');
 Route::get('/contact', [ContactController::class, 'index'])->name('contact.index');
+Route::get('/events', [EventController::class, 'index'])->name('events.index');
+Route::get('/events/{event:slug}', [EventController::class, 'show'])->name('events.show');
 Route::get('/p/{page:slug}', [CmsPageController::class, 'show'])->name('pages.show');
 
 // Private, unlisted surveys are shared directly from the admin panel.
@@ -132,9 +157,10 @@ Route::post('/leads', [LeadController::class, 'store'])->middleware('throttle:5,
 Route::get('/payments/{order:order_number}/callback/{gateway}', [CheckoutController::class, 'callback'])->name('payments.callback');
 
 Route::middleware('auth')->group(function () {
-    Route::post('/courses/{course:slug}/checkout', [CheckoutController::class, 'store'])->name('courses.checkout');
-    Route::post('/courses/{course:slug}/reviews', [ReviewController::class, 'storeCourse'])->name('courses.reviews.store');
-    Route::post('/products/{product:slug}/reviews', [ReviewController::class, 'storeProduct'])->name('products.reviews.store');
+    Route::post('/courses/{course:slug}/checkout', [CheckoutController::class, 'store'])->middleware('throttle:10,1')->name('courses.checkout');
+    Route::post('/events/{event:slug}/checkout', [CheckoutController::class, 'storeEvent'])->middleware('throttle:10,1')->name('events.checkout');
+    Route::post('/courses/{course:slug}/reviews', [ReviewController::class, 'storeCourse'])->middleware('throttle:5,1')->name('courses.reviews.store');
+    Route::post('/products/{product:slug}/reviews', [ReviewController::class, 'storeProduct'])->middleware('throttle:5,1')->name('products.reviews.store');
     Route::post('/blog/{post:slug}/comments', [CommentController::class, 'store'])->middleware('throttle:8,1')->name('blog.comments.store');
     Route::post('/wishlist', [WishlistController::class, 'toggle'])->name('wishlist.toggle');
     Route::get('/dashboard/wishlist', [WishlistController::class, 'index'])->name('dashboard.wishlist');
@@ -152,7 +178,9 @@ Route::middleware('auth')->group(function () {
     Route::get('/dashboard/assignments/submissions/{submission}/attachment', \App\Http\Controllers\AssignmentDownloadController::class)->name('learning.assignment.download');
     Route::post('/notifications/subscriptions', [NotificationSubscriptionController::class, 'store'])->name('notifications.subscriptions.store');
     Route::delete('/notifications/subscriptions', [NotificationSubscriptionController::class, 'destroy'])->name('notifications.subscriptions.destroy');
-    Route::post('/checkout/{order:order_number}/pay', [CheckoutController::class, 'pay'])->name('checkout.pay');
+    Route::post('/checkout/{order:order_number}/pay', [CheckoutController::class, 'pay'])->middleware('throttle:10,1')->name('checkout.pay');
+    Route::post('/checkout/{order:order_number}/coupon', [CheckoutController::class, 'applyCoupon'])->middleware('throttle:10,1')->name('checkout.coupon.apply');
+    Route::delete('/checkout/{order:order_number}/coupon', [CheckoutController::class, 'removeCoupon'])->name('checkout.coupon.remove');
     Route::get('/checkout/{order:order_number}', [CheckoutController::class, 'show'])->name('checkout.show');
     Route::get('/dashboard/orders/{order:order_number}/invoice', InvoiceController::class)->name('dashboard.orders.invoice');
     Route::patch('/marketing/consent', [MarketingConsentController::class, 'update'])->name('marketing.consent.update');
@@ -201,6 +229,7 @@ Route::middleware('auth')->group(function () {
     Route::middleware('role:parent')->prefix('panel/parent')->name('panel.parent.')->group(function () {
         Route::get('/', [ParentDashboardController::class, 'index'])->name('dashboard');
         Route::post('/children', [ParentDashboardController::class, 'linkChild'])->name('children.link');
+        Route::post('/children/{student}/select', [ParentDashboardController::class, 'selectChild'])->name('children.select');
         Route::get('/children/{student}', [ParentDashboardController::class, 'show'])->name('children.show');
     });
 
@@ -279,6 +308,82 @@ Route::prefix('admin')
             Route::post('/{survey}/send-eitaa-summary', [PerslineController::class, 'sendSummaryToEitaa'])->middleware('permission:view surveys|manage all')->name('send-eitaa-summary');
         });
 
+        // ── Eitaa Bot Automation Module ─────────────────────────────────────────
+        Route::middleware('permission:view eitaa|manage all')->prefix('eitaa')->name('eitaa.')->group(function (): void {
+            Route::get('/', [EitaaBotController::class, 'dashboard'])->name('dashboard');
+            Route::get('/bots', [EitaaBotController::class, 'bots'])->name('bots');
+            Route::post('/bots', [EitaaBotController::class, 'storeBot'])->middleware('permission:create eitaa|manage all')->name('bots.store');
+            Route::put('/bots/{bot}', [EitaaBotController::class, 'updateBot'])->middleware('permission:update eitaa|manage all')->name('bots.update');
+            Route::post('/bots/{bot}/connect', [EitaaBotController::class, 'connectBot'])->middleware('permission:update eitaa|manage all')->name('bots.connect');
+            Route::post('/bots/{bot}/test', [EitaaBotController::class, 'testBot'])->middleware('permission:update eitaa|manage all')->name('bots.test');
+            Route::delete('/bots/{bot}', [EitaaBotController::class, 'destroyBot'])->middleware('permission:delete eitaa|manage all')->name('bots.destroy');
+
+            Route::get('/targets', [EitaaBotController::class, 'targets'])->name('targets');
+            Route::post('/targets', [EitaaBotController::class, 'storeTarget'])->middleware('permission:create eitaa|manage all')->name('targets.store');
+            Route::post('/targets/import', [EitaaBotController::class, 'importTargets'])->middleware('permission:create eitaa|manage all')->name('targets.import');
+            Route::post('/targets/manual-send', [EitaaBotController::class, 'manualSend'])->middleware('permission:create eitaa|manage all')->name('targets.manual-send');
+            Route::post('/targets/{target}/verify', [EitaaBotController::class, 'verifyTarget'])->middleware('permission:update eitaa|manage all')->name('targets.verify');
+            Route::put('/targets/{target}', [EitaaBotController::class, 'updateTarget'])->middleware('permission:update eitaa|manage all')->name('targets.update');
+            Route::delete('/targets/{target}', [EitaaBotController::class, 'destroyTarget'])->middleware('permission:delete eitaa|manage all')->name('targets.destroy');
+
+            Route::get('/campaigns', [EitaaBotController::class, 'campaigns'])->name('campaigns');
+            Route::post('/campaigns', [EitaaBotController::class, 'storeCampaign'])->middleware('permission:create eitaa|manage all')->name('campaigns.store');
+            Route::get('/campaigns/{campaign}', [EitaaBotController::class, 'showCampaign'])->name('campaigns.show');
+            Route::put('/campaigns/{campaign}', [EitaaBotController::class, 'updateCampaign'])->middleware('permission:update eitaa|manage all')->name('campaigns.update');
+            Route::post('/campaigns/{campaign}/launch', [EitaaBotController::class, 'launchCampaign'])->middleware('permission:update eitaa|manage all')->name('campaigns.launch');
+            Route::post('/campaigns/{campaign}/pause', [EitaaBotController::class, 'pauseCampaign'])->middleware('permission:update eitaa|manage all')->name('campaigns.pause');
+            Route::post('/campaigns/{campaign}/resume', [EitaaBotController::class, 'resumeCampaign'])->middleware('permission:update eitaa|manage all')->name('campaigns.resume');
+            Route::post('/campaigns/{campaign}/cancel', [EitaaBotController::class, 'cancelCampaign'])->middleware('permission:update eitaa|manage all')->name('campaigns.cancel');
+
+            Route::get('/send', [EitaaBotController::class, 'send'])->name('send');
+            Route::post('/send', [EitaaBotController::class, 'sendNow'])->middleware('permission:create eitaa|manage all')->name('send.now');
+
+            Route::get('/templates', [EitaaBotController::class, 'templates'])->name('templates');
+            Route::post('/templates', [EitaaBotController::class, 'storeTemplate'])->middleware('permission:create eitaa|manage all')->name('templates.store');
+            Route::put('/templates/{template}', [EitaaBotController::class, 'updateTemplate'])->middleware('permission:update eitaa|manage all')->name('templates.update');
+            Route::delete('/templates/{template}', [EitaaBotController::class, 'destroyTemplate'])->middleware('permission:delete eitaa|manage all')->name('templates.destroy');
+
+            Route::get('/keywords', [EitaaBotController::class, 'keywords'])->name('keywords');
+            Route::post('/keywords', [EitaaBotController::class, 'storeKeyword'])->middleware('permission:create eitaa|manage all')->name('keywords.store');
+            Route::put('/keywords/{keyword}', [EitaaBotController::class, 'updateKeyword'])->middleware('permission:update eitaa|manage all')->name('keywords.update');
+            Route::delete('/keywords/{keyword}', [EitaaBotController::class, 'destroyKeyword'])->middleware('permission:delete eitaa|manage all')->name('keywords.destroy');
+
+            Route::get('/conversations', [EitaaBotController::class, 'conversations'])->name('conversations');
+            Route::get('/reports', [EitaaBotController::class, 'reports'])->name('reports');
+            Route::get('/logs', [EitaaBotController::class, 'logs'])->name('logs');
+            Route::get('/notifications', [EitaaBotController::class, 'notifications'])->name('notifications');
+            Route::post('/notifications/read-all', [EitaaBotController::class, 'markNotificationsRead'])->middleware('permission:update eitaa|manage all')->name('notifications.read_all');
+            Route::get('/settings', [EitaaBotController::class, 'settings'])->name('settings');
+            Route::put('/settings', [EitaaBotController::class, 'updateSettings'])->middleware('permission:update eitaa|manage all')->name('settings.update');
+            Route::get('/ai', [EitaaBotController::class, 'ai'])->name('ai');
+            Route::put('/ai', [EitaaBotController::class, 'updateAi'])->middleware('permission:update eitaa|manage all')->name('ai.update');
+            Route::post('/ai/draft', [EitaaBotController::class, 'aiDraft'])->middleware('permission:create eitaa|manage all')->name('ai.draft');
+        });
+
+        Route::middleware('permission:view instagram|manage all')->prefix('instagram')->name('instagram.')->group(function () {
+            Route::get('/', [InstagramController::class, 'index'])->name('index');
+            Route::get('/automations', [InstagramController::class, 'automations'])->middleware('permission:update instagram|manage all')->name('automations');
+            Route::post('/automations', [InstagramController::class, 'storeAutomation'])->middleware('permission:create instagram|manage all')->name('automations.store');
+            Route::put('/automations/{automation}', [InstagramController::class, 'updateAutomation'])->middleware('permission:update instagram|manage all')->name('automations.update');
+            Route::post('/automations/{automation}/toggle', [InstagramController::class, 'toggleAutomation'])->middleware('permission:update instagram|manage all')->name('automations.toggle');
+            Route::delete('/automations/{automation}', [InstagramController::class, 'destroyAutomation'])->middleware('permission:delete instagram|manage all')->name('automations.destroy');
+            Route::get('/templates', [InstagramController::class, 'templates'])->middleware('permission:view instagram|manage all')->name('templates');
+            Route::post('/templates', [InstagramController::class, 'storeTemplate'])->middleware('permission:create instagram|manage all')->name('templates.store');
+            Route::put('/templates/{template}', [InstagramController::class, 'updateTemplate'])->middleware('permission:update instagram|manage all')->name('templates.update');
+            Route::delete('/templates/{template}', [InstagramController::class, 'destroyTemplate'])->middleware('permission:delete instagram|manage all')->name('templates.destroy');
+            Route::get('/media', [InstagramController::class, 'media'])->middleware('permission:view instagram|manage all')->name('media');
+            Route::post('/media/publish', [InstagramController::class, 'publishMedia'])->middleware('permission:create instagram|manage all')->name('media.publish');
+            Route::post('/media/{media}/retry', [InstagramController::class, 'retryMedia'])->middleware('permission:update instagram|manage all')->name('media.retry');
+            Route::delete('/media/{media}', [InstagramController::class, 'destroyMedia'])->middleware('permission:delete instagram|manage all')->name('media.destroy');
+            Route::get('/webhooks', [InstagramController::class, 'webhooks'])->middleware('permission:view instagram|manage all')->name('webhooks');
+            Route::get('/analytics', [InstagramController::class, 'analytics'])->middleware('permission:view instagram|manage all')->name('analytics');
+            Route::get('/{conversation}', [InstagramController::class, 'show'])->name('show');
+            Route::post('/{conversation}/reply', [InstagramController::class, 'reply'])->middleware('permission:reply instagram|manage all')->name('reply');
+            Route::post('/{conversation}/status', [InstagramController::class, 'updateStatus'])->middleware('permission:update instagram|manage all')->name('status');
+            Route::post('/{conversation}/assign', [InstagramController::class, 'assign'])->middleware('permission:update instagram|manage all')->name('assign');
+            Route::post('/messages/{message}/moderate', [InstagramController::class, 'moderateComment'])->middleware('permission:update instagram|manage all')->name('messages.moderate');
+        });
+
         Route::middleware('permission:view marketing|manage all')->prefix('marketing')->name('marketing.')->group(function () {
             Route::get('/', [MarketingController::class, 'index'])->name('index');
             Route::get('/create', [MarketingController::class, 'create'])->middleware('permission:create marketing|manage all')->name('create');
@@ -338,6 +443,13 @@ Route::prefix('admin')
             Route::get('/settings/payments', [SettingsController::class, 'payments'])->name('settings.payments');
             Route::get('/settings/automations', [SettingsController::class, 'automations'])->name('settings.automations');
             Route::get('/settings/chat', [SettingsController::class, 'chat'])->name('settings.chat');
+            Route::get('/settings/instagram', [SettingsController::class, 'instagram'])->name('settings.instagram');
+            Route::get('/settings/instagram/status', [SettingsController::class, 'instagramStatus'])->name('settings.instagram.status');
+            Route::post('/settings/instagram/test', [SettingsController::class, 'instagramTest'])->name('settings.instagram.test');
+            Route::post('/settings/instagram/refresh', [SettingsController::class, 'instagramRefresh'])->name('settings.instagram.refresh');
+            Route::get('/settings/instagram/connect', [SettingsController::class, 'instagramConnect'])->name('settings.instagram.connect');
+            Route::get('/settings/instagram/callback', [SettingsController::class, 'instagramCallback'])->name('settings.instagram.callback');
+            Route::post('/settings/instagram/disconnect', [SettingsController::class, 'instagramDisconnect'])->name('settings.instagram.disconnect');
             Route::put('/settings', [SettingsController::class, 'update'])->name('settings.update');
             Route::post('/settings/logo', [SettingsController::class, 'updateLogo'])->name('settings.logo.update');
             Route::post('/settings/app-logo', [SettingsController::class, 'updateAppLogo'])->name('settings.app-logo.update');

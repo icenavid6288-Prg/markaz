@@ -19,10 +19,13 @@ class Lead extends Model
         'need',
         'service_type',
         'source',
+        'instagram_user_id',
+        'instagram_username',
         'status',
         'assigned_to',
         'notes',
         'tags',
+        'attribution',
         'last_activity_at',
         'last_reminded_at',
         'reminder_stage',
@@ -32,6 +35,7 @@ class Lead extends Model
     {
         return [
             'tags' => 'array',
+            'attribution' => 'array',
             'last_activity_at' => 'datetime',
             'last_reminded_at' => 'datetime',
             'reminder_stage' => 'integer',

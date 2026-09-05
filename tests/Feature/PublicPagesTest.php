@@ -7,6 +7,7 @@ use App\Models\Coach;
 use App\Models\CoachAvailability;
 use App\Models\CoachingSession;
 use App\Models\Course;
+use App\Models\Coupon;
 use App\Models\Instructor;
 use App\Models\Enrollment;
 use App\Models\Review;
@@ -45,6 +46,7 @@ class PublicPagesTest extends TestCase
         $this->get('/sitemap.xml')
             ->assertOk()
             ->assertHeader('Content-Type', 'application/xml; charset=UTF-8')
+            ->assertHeader('X-Robots-Tag', 'noindex')
             ->assertSee('<urlset', false)
             ->assertSee('/courses', false)
             ->assertSee('/shop', false);
@@ -52,8 +54,20 @@ class PublicPagesTest extends TestCase
         $this->get('/robots.txt')
             ->assertOk()
             ->assertHeader('Content-Type', 'text/plain; charset=UTF-8')
+            ->assertHeader('Cache-Control', 'public, max-age=3600')
             ->assertSee('User-agent: *')
+            ->assertSee('Disallow: /login')
+            ->assertSee('Disallow: /panel')
             ->assertSee('Sitemap: ');
+    }
+
+    public function test_public_seo_uses_canonical_path_without_filter_query_parameters(): void
+    {
+        $this->get('/courses?sort=price_desc&page=2')
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('seo.canonical', url('/courses'))
+                ->where('seo.noindex', false));
     }
 
     public function test_team_page_lists_instructors_coaches_and_team_members(): void
@@ -634,6 +648,42 @@ class PublicPagesTest extends TestCase
                 ->where('items.0.id', $product->id)
                 ->where('items.0.quantity', 2)
                 ->where('totals.total', $product->finalPrice() * 2));
+    }
+
+    public function test_cart_coupon_is_applied_against_the_current_cart_total(): void
+    {
+        $product = Product::active()->ofType('book')->firstOrFail();
+        $coupon = Coupon::create([
+            'code' => 'SAVE20',
+            'type' => 'percent',
+            'value' => 20,
+            'is_active' => true,
+        ]);
+
+        $this->withSession(['cart' => [$product->id => 1]])
+            ->post('/cart/coupon', ['code' => ' save20 '])
+            ->assertRedirect('/cart')
+            ->assertSessionHas('cart_coupon', $coupon->code);
+
+        $this->withSession(['cart' => [$product->id => 1], 'cart_coupon' => $coupon->code])
+            ->get('/cart')
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('coupon.code', 'SAVE20')
+                ->where('coupon.discount', (int) round($product->finalPrice() * 0.2))
+                ->where('totals.total', $product->finalPrice() - (int) round($product->finalPrice() * 0.2)));
+    }
+
+    public function test_invalid_cart_coupon_is_rejected(): void
+    {
+        $product = Product::active()->ofType('book')->firstOrFail();
+
+        $this->withSession(['cart' => [$product->id => 1]])
+            ->from('/cart')
+            ->post('/cart/coupon', ['code' => 'NOT-VALID'])
+            ->assertRedirect('/cart')
+            ->assertSessionHasErrors('code')
+            ->assertSessionMissing('cart_coupon');
     }
 
     public function test_authenticated_cart_creates_a_product_order_and_opens_checkout(): void

@@ -180,6 +180,8 @@ class UserDashboardController extends Controller
             'progress_percent' => (int) $enrollment->progress_percent,
             'status' => $enrollment->status,
             'enrolled_at' => $enrollment->enrolled_at?->toISOString(),
+            'is_in_person' => $enrollment->course->is_in_person,
+            'location' => $enrollment->course->location,
         ])->values();
 
         $sessions = CoachingSession::query()

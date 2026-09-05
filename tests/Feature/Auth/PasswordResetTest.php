@@ -49,7 +49,10 @@ class PasswordResetTest extends TestCase
 
     public function test_reset_test_code_is_not_exposed_in_production(): void
     {
+        // environment() reads the container binding in Laravel 11+.
+        $this->app['env'] = 'production';
         Config::set('app.env', 'production');
+        $this->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class);
         $user = User::factory()->create();
 
         $this->post('/forgot-password', ['phone' => $user->phone])

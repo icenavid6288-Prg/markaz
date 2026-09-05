@@ -41,7 +41,17 @@ jobs:
         run: |
           rm -rf deployment
           mkdir deployment
-          rsync -a --exclude='.git' --exclude='.github' --exclude='node_modules' --exclude='tests' --exclude='storage/logs/*' ./ deployment/
+          # Never ship local secrets or caches: a stale .env (dev DB
+          # credentials) or bootstrap/cache/config.php makes the installer
+          # connect with credentials the user never typed, and a shipped
+          # installed.lock makes the wizard redirect instead of running.
+          rsync -a \
+            --exclude='.git' --exclude='.github' --exclude='node_modules' --exclude='tests' \
+            --exclude='.env' --exclude='bootstrap/cache' --exclude='storage/app/installed.lock' \
+            --exclude='.deploy-config*' --exclude='.freebuff' --exclude='.deploy-last' \
+            --exclude='*.zip' --exclude='*.tar.gz' --exclude='*.log' --exclude='*.ps1' \
+            --exclude='composer.phar' \
+            ./ deployment/
           mkdir -p deployment/storage/logs deployment/storage/framework/cache deployment/storage/framework/sessions deployment/storage/framework/views
           cd deployment
           zip -r ../markaz-deployment-${GITHUB_SHA::7}.zip . -x '*.DS_Store'

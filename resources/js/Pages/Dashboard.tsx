@@ -175,8 +175,8 @@ export default function Dashboard() {
                             <span className="inline-flex items-center gap-2 text-xs font-bold text-brand-200"><Route className="size-3.5" /> نمای کلی مسیر رشد</span>
                             <h2 className="mt-4 text-2xl font-black leading-tight md:text-3xl">سلام {profile.name.split(' ')[0]}، قدم بعدی‌ات آماده است.</h2>
                             <p className="mt-3 max-w-xl text-sm leading-7 text-white/65">از اینجا می‌توانید هر بخش از مسیر یادگیری، هدف‌ها، جلسات و خریدها را جداگانه دنبال کنید.</p>
-                            <Link href={nextCourse ? '/dashboard/courses' : '/courses'} className="mt-6 inline-flex items-center gap-2 rounded-2xl bg-white px-5 py-3 text-sm font-black text-deep-green transition-colors hover:bg-brand-100">
-                                {nextCourse ? 'ادامه دوره‌های من' : 'شروع مسیر رشد'} <ArrowLeft className="size-4" />
+                            <Link href={nextCourse ? '/dashboard/courses' : '/dashboard/onboarding'} className="mt-6 inline-flex items-center gap-2 rounded-2xl bg-white px-5 py-3 text-sm font-black text-deep-green transition-colors hover:bg-brand-100">
+                                {nextCourse ? 'ادامه دوره‌های من' : 'ساخت مسیر شخصی من'} <ArrowLeft className="size-4" />
                             </Link>
                         </div>
                         <div className="rounded-3xl border border-white/15 bg-white/10 p-5">

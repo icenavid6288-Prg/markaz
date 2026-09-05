@@ -19,11 +19,18 @@ function applyTheme(theme: Theme) {
 }
 
 export default function ThemeToggle({ compact = false }: { compact?: boolean }) {
-    const [theme, setTheme] = useState<Theme>(preferredTheme);
+    // Keep the first client render deterministic. Reading localStorage or
+    // matchMedia during render can disagree with SSR and trigger hydration
+    // mismatches; the effect applies the real preference immediately after mount.
+    const [theme, setTheme] = useState<Theme>('light');
+    const [mounted, setMounted] = useState(false);
 
     useEffect(() => {
-        applyTheme(theme);
-        window.localStorage.setItem(STORAGE_KEY, theme);
+        const initialTheme = preferredTheme();
+        setMounted(true);
+        setTheme(initialTheme);
+        applyTheme(initialTheme);
+        window.localStorage.setItem(STORAGE_KEY, initialTheme);
 
         const onThemeChange = (event: Event) => {
             const next = (event as CustomEvent<Theme>).detail;
@@ -31,7 +38,11 @@ export default function ThemeToggle({ compact = false }: { compact?: boolean }) 
         };
         window.addEventListener(THEME_EVENT, onThemeChange);
         return () => window.removeEventListener(THEME_EVENT, onThemeChange);
-    }, [theme]);
+    }, []);
+
+    useEffect(() => {
+        if (mounted) applyTheme(theme);
+    }, [mounted, theme]);
 
     const toggle = () => {
         const next = theme === 'dark' ? 'light' : 'dark';
@@ -41,7 +52,7 @@ export default function ThemeToggle({ compact = false }: { compact?: boolean }) 
         window.dispatchEvent(new CustomEvent<Theme>(THEME_EVENT, { detail: next }));
     };
 
-    const isDark = theme === 'dark';
+    const isDark = mounted && theme === 'dark';
 
     return (
         <button

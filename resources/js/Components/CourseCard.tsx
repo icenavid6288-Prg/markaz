@@ -1,4 +1,4 @@
-import { Clock, PlayCircle, Star, Users } from 'lucide-react';
+import { Clock, MapPin, PlayCircle, Star, Users } from 'lucide-react';
 import { Link } from '@inertiajs/react';
 import { Badge } from '@/Components/ui/Badge';
 import { formatDuration, formatNumber, formatPrice } from '@/lib/format';
@@ -16,6 +16,7 @@ export interface CourseCardData {
     students_count: number;
     rating_avg: number;
     progress_percent?: number;
+    is_in_person?: boolean;
     instructor?: { user?: { name?: string } } | null;
 }
 
@@ -54,6 +55,7 @@ export function CourseCard({ course }: { course: CourseCardData }) {
                 <div className="absolute inset-0 bg-gradient-to-t from-navy/30 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
                 <div className="absolute right-3 top-3 flex gap-2">
                     <Badge tone="navy">{levelLabels[course.level] ?? course.level}</Badge>
+                    {course.is_in_person && <Badge tone="green"><MapPin className="size-3 inline" /> حضوری</Badge>}
                     {hasDiscount && <Badge tone="gold">تخفیف</Badge>}
                 </div>
             </div>
@@ -85,8 +87,9 @@ export function CourseCard({ course }: { course: CourseCardData }) {
                 <div className="flex items-end justify-between border-t border-navy/5 pt-4">
                     <div className="flex flex-col">
                         {hasDiscount && (
-                            <span className="text-xs text-navy/40 line-through">
+                            <span className="relative inline-block text-base font-bold text-navy/55" aria-label={`قیمت قبلی ${formatPrice(course.price)}`}>
                                 {formatPrice(course.price)}
+                                <span className="pointer-events-none absolute inset-x-[-0.2rem] top-1/2 h-0.5 -rotate-12 bg-red-600" aria-hidden="true" />
                             </span>
                         )}
                         <span className="text-lg font-black text-brand-700">

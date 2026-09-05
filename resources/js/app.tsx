@@ -35,7 +35,10 @@ if (typeof window !== 'undefined') {
 }
 
 createInertiaApp({
+    // Match the server-generated CSP nonce for dynamic Inertia head elements.
+    nonce: typeof document !== 'undefined'
+        ? document.querySelector<HTMLMetaElement>('meta[name="csp-nonce"]')?.content
+        : undefined,
     // Public pages provide their complete, database-driven SEO title through <SeoHead>.
     title: (title) => title || appName,
-    strictMode: true,
 });

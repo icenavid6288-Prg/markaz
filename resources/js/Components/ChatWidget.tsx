@@ -163,7 +163,7 @@ export default function ChatWidget() {
                 <section
                     role="dialog"
                     aria-label={chat.title}
-                    className="fixed bottom-24 right-5 z-[70] flex h-[34rem] max-h-[calc(100vh-7.5rem)] w-[22.5rem] max-w-[calc(100vw-2.5rem)] flex-col overflow-hidden rounded-3xl bg-white shadow-lift ring-1 ring-navy/10"
+                    className="chat-widget-panel fixed bottom-24 right-5 z-[70] flex h-[34rem] max-h-[calc(100vh-7.5rem)] w-[22.5rem] max-w-[calc(100vw-2.5rem)] flex-col overflow-hidden rounded-3xl bg-white shadow-lift ring-1 ring-navy/10"
                 >
                     {/* Header */}
                     <div className="relative overflow-hidden bg-deep-gradient px-5 py-4 text-white">
@@ -290,7 +290,7 @@ export default function ChatWidget() {
             <button
                 type="button"
                 onClick={openChat}
-                className="fixed bottom-5 right-5 z-[70] flex size-14 items-center justify-center rounded-full bg-gradient-to-br from-brand-600 to-deep-green text-white shadow-glow transition-all hover:scale-105 hover:from-brand-700 hover:to-brand-800 active:scale-95"
+                className="chat-widget-launcher fixed bottom-5 right-5 z-[70] flex size-14 items-center justify-center rounded-full bg-gradient-to-br from-brand-600 to-deep-green text-white shadow-glow transition-all hover:scale-105 hover:from-brand-700 hover:to-brand-800 active:scale-95"
                 aria-label="پشتیبانی زنده"
                 title={chat.title}
             >

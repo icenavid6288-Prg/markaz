@@ -6,8 +6,8 @@ interface AuthContextValue {
     token: string | null;
     user: UserPayload | null;
     loading: boolean;
-    login: (email: string, password: string) => Promise<void>;
-    register: (name: string, email: string, password: string) => Promise<void>;
+    login: (identifier: string, password: string) => Promise<void>;
+    register: (name: string, email: string, password: string, phone?: string) => Promise<void>;
     logout: () => Promise<void>;
     refreshMe: () => Promise<void>;
 }
@@ -54,10 +54,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }, []);
 
     const login = useCallback(
-        async (email: string, password: string) => {
+        async (identifier: string, password: string) => {
+            const isPhone = /^09\d{9}$/.test(identifier);
             const data = await api<AuthData>('/api/v1/auth/login', {
                 method: 'POST',
-                body: { email, password },
+                body: isPhone ? { phone: identifier, password } : { email: identifier, password },
             });
             applyAuth(data);
         },
@@ -65,10 +66,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     );
 
     const register = useCallback(
-        async (name: string, email: string, password: string) => {
+        async (name: string, email: string, password: string, phone = '') => {
             const data = await api<AuthData>('/api/v1/auth/register', {
                 method: 'POST',
-                body: { name, email, password, password_confirmation: password },
+                body: { name, email: email || undefined, phone, password, password_confirmation: password },
             });
             applyAuth(data);
         },

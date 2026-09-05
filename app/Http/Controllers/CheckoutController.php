@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Coupon;
 use App\Models\Course;
 use App\Models\Enrollment;
 use App\Models\Order;
@@ -22,6 +23,21 @@ use Throwable;
 
 class CheckoutController extends Controller
 {
+    public function storeEvent(Request $request, \App\Models\Event $event): RedirectResponse
+    {
+        abort_unless($event->status === 'published', 404);
+        $user = $request->user();
+        $total = $event->finalPrice();
+        $order = DB::transaction(function () use ($user, $event, $total) {
+            $isFree = $total === 0;
+            $order = Order::create(['order_number' => Order::generateOrderNumber(), 'user_id' => $user->id, 'status' => $isFree ? 'paid' : 'pending', 'subtotal' => $total, 'discount' => max(0, $event->price - $total), 'total' => $total, 'payment_method' => $isFree ? 'free' : null, 'paid_at' => $isFree ? now() : null, 'billing' => ['name' => $user->name, 'email' => $user->email, 'phone' => $user->phone]]);
+            $order->items()->create(['purchasable_type' => \App\Models\Event::class, 'purchasable_id' => $event->id, 'title' => $event->title, 'unit_price' => $total, 'quantity' => 1, 'total' => $total]);
+            return $order;
+        });
+        if ($order->status === 'paid') return redirect()->route('events.show', $event->slug)->with('success', 'دسترسی شما به این رویداد فعال شد.');
+        return redirect()->route('checkout.show', $order->order_number);
+    }
+
     public function store(Request $request, Course $course): RedirectResponse
     {
         abort_unless($course->is_published, 404);
@@ -58,6 +74,23 @@ class CheckoutController extends Controller
     {
         $this->ensureOwner($request, $order);
         abort_if($order->status === 'paid', 422, 'این سفارش قبلاً پرداخت شده است.');
+
+        // Free orders (e.g. a 100% coupon) never need a gateway.
+        if ((int) $order->total === 0) {
+            DB::transaction(function () use ($order): void {
+                $lockedOrder = Order::query()->lockForUpdate()->findOrFail($order->id);
+                if ($lockedOrder->status === 'paid') {
+                    return;
+                }
+                $lockedOrder->update(['status' => 'paid', 'paid_at' => now(), 'payment_method' => 'free', 'reservation_expires_at' => null]);
+                $fulfillment = app(OrderFulfillment::class);
+                $fulfillment->enrollCourses($lockedOrder);
+                $fulfillment->finalizeProducts($lockedOrder);
+            });
+
+            return redirect()->route('dashboard')->with('success', 'سفارش رایگان شما فعال شد.');
+        }
+
         abort_unless(filter_var(Setting::get('payment_enabled', false), FILTER_VALIDATE_BOOLEAN), 422, 'درگاه پرداخت هنوز از پنل مدیریت فعال نشده است.');
         abort_if(app()->isProduction() && $gateway->driverName() === 'local', 422, 'درگاه آزمایشی در محیط عملیاتی مجاز نیست. یک درگاه واقعی انتخاب کنید.');
 
@@ -163,11 +196,67 @@ class CheckoutController extends Controller
         return redirect()->route('dashboard')->with('success', 'پرداخت با موفقیت انجام شد و دسترسی شما فعال شد.');
     }
 
+    public function applyCoupon(Request $request, Order $order): RedirectResponse
+    {
+        $this->ensureOwner($request, $order);
+        abort_if($order->status === 'paid', 422, 'این سفارش قبلاً پرداخت شده است.');
+
+        $validated = $request->validate([
+            'code' => ['required', 'string', 'max:32'],
+        ]);
+        $validated['code'] = mb_strtoupper(trim(preg_replace('/\s+/u', '', $validated['code']) ?? $validated['code']));
+
+        $coupon = app(OrderFulfillment::class)->findValidCoupon($validated['code'], (int) $order->items->sum('total'));
+        if (! $coupon) {
+            return back()->withErrors(['code' => 'کد تخفیف معتبر نیست یا منقضی شده است.']);
+        }
+
+        $itemsTotal = (int) $order->items->sum('total');
+        $couponDiscount = $coupon->discountFor($itemsTotal);
+        $newTotal = max(0, $itemsTotal - $couponDiscount);
+        $isFree = $newTotal === 0;
+
+        DB::transaction(function () use ($order, $coupon, $newTotal, $itemsTotal, $isFree) {
+            $order->update([
+                'coupon_id' => $coupon->id,
+                'discount' => $itemsTotal - $newTotal,
+                'total' => $newTotal,
+                'status' => $isFree ? 'paid' : $order->status,
+                'payment_method' => $isFree ? 'free' : $order->payment_method,
+                'paid_at' => $isFree ? now() : $order->paid_at,
+            ]);
+            $coupon->increment('used_count');
+            if ($isFree) {
+                app(OrderFulfillment::class)->enrollCourses($order);
+            }
+        });
+
+        if ($isFree) {
+            return redirect()->route('dashboard')->with('success', 'ثبت‌نام شما با کد تخفیف با موفقیت انجام شد.');
+        }
+
+        return back()->with('success', 'کد تخفیف اعمال شد.');
+    }
+
+    public function removeCoupon(Request $request, Order $order): RedirectResponse
+    {
+        $this->ensureOwner($request, $order);
+        abort_if($order->status === 'paid', 422, 'این سفارش قبلاً پرداخت شده است.');
+
+        $order->update([
+            'coupon_id' => null,
+            'discount' => 0,
+            'total' => (int) $order->subtotal,
+        ]);
+
+        return back()->with('success', 'کد تخفیف حذف شد.');
+    }
+
     public function show(Request $request, Order $order): Response|RedirectResponse
     {
         $this->ensureOwner($request, $order);
         if ($order->status === 'paid') return redirect()->route('dashboard')->with('success', 'این سفارش قبلاً پرداخت شده است.');
-        $order->load('items.purchasable');
+        $order->load('items.purchasable', 'coupon');
 
         return Inertia::render('Checkout/Show', [
             'order' => [
@@ -175,6 +264,7 @@ class CheckoutController extends Controller
                 'discount' => $order->discount, 'total' => $order->total, 'billing' => $order->billing,
                 'items' => $order->items->map(fn ($item) => ['id' => $item->id, 'title' => $item->title, 'unit_price' => $item->unit_price, 'quantity' => $item->quantity, 'total' => $item->total, 'course_slug' => $item->purchasable instanceof Course ? $item->purchasable->slug : null, 'product_slug' => $item->purchasable instanceof Product ? $item->purchasable->slug : null])->values(),
             ],
+            'coupon' => $order->coupon ? ['code' => $order->coupon->code, 'discount' => $order->discount] : null,
             'payment' => [
                 'enabled' => filter_var(Setting::get('payment_enabled', false), FILTER_VALIDATE_BOOLEAN),
                 'gateway' => (string) Setting::get('payment_gateway', 'local'),

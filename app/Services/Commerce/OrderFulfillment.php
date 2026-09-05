@@ -77,8 +77,20 @@ class OrderFulfillment
             return null;
         }
 
-        $coupon = Coupon::query()->whereRaw('UPPER(code) = ?', [$code])->first();
+        $coupon = Coupon::query()
+            ->whereRaw('UPPER(TRIM(code)) = ?', [$code])
+            ->first();
 
-        return $coupon && $coupon->isValid($subtotal) ? $coupon : null;
+        // Older installations may have stored an empty expiration as a zero
+        // date (or an invalid legacy value). Treat that value as "no expiry";
+        // real future/past dates are still enforced by Coupon::isValid().
+
+        // Keep valid admin-created coupons usable even when a legacy database
+        // stores the boolean as a string or an empty date as a zero timestamp.
+        if (! $coupon) {
+            return null;
+        }
+
+        return $coupon->isValid($subtotal) ? $coupon : null;
     }
 }

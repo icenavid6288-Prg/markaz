@@ -22,6 +22,11 @@ class CoursePresenter
             'students_count' => $course->students_count,
             'rating_avg' => $course->rating_avg,
             'certificate_enabled' => $course->certificate_enabled,
+            'is_in_person' => $course->is_in_person,
+            'location' => $course->location,
+            'schedule' => $course->schedule,
+            'max_students' => $course->max_students,
+            'in_person_description' => $course->in_person_description,
             'instructor' => $course->instructor ? [
                 'id' => $course->instructor->id,
                 'specialty' => $course->instructor->specialty,

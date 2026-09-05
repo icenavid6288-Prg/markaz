@@ -2,6 +2,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Linking } from 'react-native';
 
 const DEFAULT_SERVER_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8000';
+const REQUEST_TIMEOUT_MS = 15000;
+const MAX_RETRIES = 1;
 
 export const CONFIG_KEY = 'markaz:config';
 export const TOKEN_KEY = 'markaz:token';
@@ -74,7 +76,7 @@ function firstValidationError(errors?: Record<string, string[]>): string | null 
 
 export async function api<T>(
     path: string,
-    options: { method?: string; body?: unknown; auth?: boolean; query?: Record<string, string> } = {}
+    options: { method?: string; body?: unknown; auth?: boolean; query?: Record<string, string>; timeoutMs?: number; retries?: number } = {}
 ): Promise<T> {
     const base = await getServerUrl();
     const token = await getToken();
@@ -91,19 +93,29 @@ export async function api<T>(
     if (options.body !== undefined) headers['Content-Type'] = 'application/json';
     if (options.auth !== false && token) headers.Authorization = `Bearer ${token}`;
 
-    let response: Response;
-    try {
-        response = await fetch(url, {
-            method: options.method || 'GET',
-            headers,
-            body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
-        });
-    } catch {
-        throw new ApiError(
-            'امکان اتصال به سرور نیست. آدرس سرور را در تنظیمات بررسی کنید.',
-            0
-        );
+    let response: Response | null = null;
+    const retries = options.retries ?? (options.method || 'GET') === 'GET' ? MAX_RETRIES : 0;
+    const timeoutMs = options.timeoutMs ?? REQUEST_TIMEOUT_MS;
+    for (let attempt = 0; attempt <= retries; attempt += 1) {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), timeoutMs);
+        try {
+            response = await fetch(url, {
+                method: options.method || 'GET',
+                headers,
+                body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
+                signal: controller.signal,
+            });
+            clearTimeout(timeout);
+            break;
+        } catch {
+            clearTimeout(timeout);
+            if (attempt === retries) {
+                throw new ApiError('امکان اتصال به سرور نیست. آدرس سرور را در تنظیمات بررسی کنید.', 0);
+            }
+        }
     }
+    if (!response) throw new ApiError('پاسخی از سرور دریافت نشد.', 0);
 
     const text = await response.text();
     let json: { data?: T; message?: string; errors?: Record<string, string[]> } | null = null;

@@ -5,6 +5,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 export type RootStackParamList = {
     Tabs: undefined;
     CourseDetail: { slug: string };
+    Learning: { slug: string; lessonId?: number };
     ProductDetail: { slug: string };
     Settings: undefined;
     Login: undefined;

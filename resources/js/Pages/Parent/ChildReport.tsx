@@ -1,5 +1,5 @@
 import { Link, usePage } from '@inertiajs/react';
-import { ArrowLeft, ArrowRight, Award, BookOpen, CalendarDays, CheckCircle2, ClipboardList, Clock3, GraduationCap, Printer, Route, Target, TrendingUp } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Award, BookOpen, CalendarDays, CheckCircle2, ClipboardList, Clock3, GraduationCap, MapPin, Printer, Route, Target, TrendingUp } from 'lucide-react';
 import type { ReactNode } from 'react';
 import ProfessionalLayout from '@/Layouts/ProfessionalLayout';
 import { formatDate, formatNumber } from '@/lib/format';
@@ -12,8 +12,10 @@ interface ChildSession { id: number; coach?: string | null; scheduled_at?: strin
 interface ChildGoal { id: number; title: string; status: string; due_date?: string | null; total_tasks: number; completed_tasks: number; }
 interface ChildCertificate { id: number; number: string; issued_at?: string | null; course?: string | null; url: string; }
 
+interface ChildActivity { type: string; title?: string | null; context?: string | null; status: string; at?: string | null; }
+interface InPersonCourse { title?: string | null; location?: string | null; schedule?: Record<string, unknown> | string[] | null; progress_percent: number; }
 interface ChildData {
-    id: number; name?: string | null; avatar?: string | null; grade?: string | null; school?: string | null; birth_date?: string | null; talents?: string[]; interests?: string[];
+    id: number; name?: string | null; avatar?: string | null; grade?: string | null; school?: string | null; birth_date?: string | null; talents?: string[]; interests?: string[]; activity: ChildActivity[]; in_person_courses: InPersonCourse[];
     stats: { courses: number; completed_courses: number; average_progress: number; pending_assignments: number; certificates: number; upcoming_sessions: number; active_goals: number };
     courses: ChildCourse[]; assignments: ChildAssignment[]; quizzes: ChildQuiz[]; sessions: ChildSession[]; goals: ChildGoal[]; certificates: ChildCertificate[];
 }
@@ -42,6 +44,19 @@ export default function ChildReport() {
                 { label: 'جلسات پیش‌رو', value: child.stats.upcoming_sessions, icon: CalendarDays },
                 { label: 'هدف‌های فعال', value: child.stats.active_goals, icon: Target },
             ].map((item) => <div key={item.label} className="flex items-center gap-4 rounded-2xl border border-white/80 bg-white/80 p-5 shadow-soft"><span className="panel-stat-icon"><item.icon className="size-5" /></span><div><strong className="block text-xl font-black text-navy">{typeof item.value === 'number' ? formatNumber(item.value) : item.value}</strong><span className="text-xs font-bold text-navy/45">{item.label}</span></div></div>)}
+        </section>
+
+        <section className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+            <div>
+                <div className="mb-4"><div className="dashboard-eyebrow"><span /> فعالیت اخیر</div><h2 className="mt-2 text-xl font-black text-navy">فرزندتان اخیراً مشغول چه کاری بوده؟</h2></div>
+                <div className="rounded-2xl border border-white/80 bg-white/80 p-5 shadow-soft">
+                    {child.activity.length > 0 ? <div className="flex flex-col">{child.activity.map((item, index) => <div key={`${item.type}-${item.at}-${index}`} className="flex gap-3 border-b border-navy/5 py-3 first:pt-0 last:border-0 last:pb-0"><span className="mt-1 flex size-8 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-xs font-black text-brand-700">{item.type === 'lesson' ? 'درس' : item.type === 'quiz' ? 'آزمون' : 'تمرین'}</span><div className="min-w-0 flex-1"><strong className="block truncate text-sm text-navy">{item.title}</strong><span className="mt-1 block truncate text-xs font-bold text-navy/45">{item.context ?? 'فعالیت آموزشی'}{item.at ? ` · ${formatDate(item.at)}` : ''}</span></div><span className="shrink-0 text-[0.68rem] font-black text-brand-700">{item.status === 'completed' || item.status === 'passed' ? 'موفق' : item.status === 'submitted' ? 'ارسال شد' : 'در حال انجام'}</span></div>)}</div> : <p className="py-8 text-center text-sm font-bold text-navy/40">هنوز فعالیتی ثبت نشده است.</p>}
+                </div>
+            </div>
+            <div>
+                <div className="mb-4"><div className="dashboard-eyebrow"><span /> دوره‌های حضوری</div><h2 className="mt-2 text-xl font-black text-navy">برنامه حضور فرزندتان</h2></div>
+                <div className="flex flex-col gap-3">{child.in_person_courses.length > 0 ? child.in_person_courses.map((course, index) => <div key={`${course.title}-${index}`} className="rounded-2xl border border-white/80 bg-white/80 p-4 shadow-soft"><div className="flex items-start gap-3"><span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-700"><MapPin className="size-5" /></span><div className="min-w-0"><strong className="block text-sm text-navy">{course.title}</strong><span className="mt-1 block text-xs font-bold text-navy/50">{course.location ?? 'محل برگزاری ثبت نشده'}</span>{course.schedule && <span className="mt-1 block text-xs font-bold text-navy/40">برنامه: {typeof course.schedule === 'string' ? course.schedule : JSON.stringify(course.schedule)}</span>}</div></div><div className="mt-3 h-2 overflow-hidden rounded-full bg-navy/5"><span className="block h-full rounded-full bg-brand-500" style={{ width: `${course.progress_percent}%` }} /></div></div>) : <div className="rounded-2xl border border-dashed border-brand-200 bg-white/55 px-5 py-8 text-center text-sm font-bold text-navy/45">دوره حضوری فعالی ثبت نشده است.</div>}</div>
+            </div>
         </section>
 
         <section id="reports" className="scroll-mt-24">

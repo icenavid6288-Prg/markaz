@@ -1,5 +1,5 @@
 import { Link, router, usePage } from '@inertiajs/react';
-import { ArrowLeft, BookOpen, Filter, GraduationCap, Search, SlidersHorizontal, Sparkles } from 'lucide-react';
+import { ArrowLeft, BookOpen, Filter, GraduationCap, MapPin, Search, SlidersHorizontal, Sparkles } from 'lucide-react';
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { CourseCard, type CourseCardData } from '@/Components/CourseCard';
 import { Pagination, type PaginationMeta } from '@/Components/ui/Pagination';
@@ -38,7 +38,7 @@ export default function CoursesIndex() {
         PageProps & {
             courses: PaginatedCourses;
             categories: CategoryData[];
-            filters: { q: string; level: string; category: string; sort: string };
+            filters: { q: string; level: string; category: string; sort: string; in_person: boolean };
         }
     >().props;
 
@@ -61,7 +61,7 @@ export default function CoursesIndex() {
         applyFilters({ q });
     };
 
-    const hasFilters = Boolean(filters.q || filters.level || filters.category || filters.sort !== 'latest');
+    const hasFilters = Boolean(filters.q || filters.level || filters.category || filters.sort !== 'latest' || filters.in_person);
 
     return (
         <div>
@@ -129,6 +129,9 @@ export default function CoursesIndex() {
                             <div className="flex flex-wrap items-center gap-2 border-t border-navy/5 pt-3">
                                 <span className="ml-1 text-xs font-black text-navy/45">سطح:</span>
                                 {levels.map((level) => <button key={level.key} type="button" onClick={() => applyFilters({ level: level.key })} className={`rounded-lg px-3 py-1.5 text-xs font-bold transition-all ${filters.level === level.key || (!filters.level && !level.key) ? 'bg-brand-100 text-brand-800' : 'text-navy/50 hover:bg-brand-50 hover:text-brand-700'}`}>{level.label}</button>)}
+                                <span className="mr-3 ml-1 text-xs font-black text-navy/45">نوع برگزاری:</span>
+                                <button type="button" onClick={() => applyFilters({ in_person: false })} className={`rounded-lg px-3 py-1.5 text-xs font-bold transition-all ${!filters.in_person ? 'bg-brand-100 text-brand-800' : 'text-navy/50 hover:bg-brand-50 hover:text-brand-700'}`}>آنلاین</button>
+                                <button type="button" onClick={() => applyFilters({ in_person: true })} className={`inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-bold transition-all ${filters.in_person ? 'bg-emerald-100 text-emerald-800' : 'text-navy/50 hover:bg-emerald-50 hover:text-emerald-700'}`}><MapPin className="size-3" /> حضوری</button>
                             </div>
                         </div>
                     </div>
@@ -150,7 +153,7 @@ export default function CoursesIndex() {
                         </div>
                     )}
 
-                    <Pagination meta={courses} path="/courses" filters={{ q: filters.q, level: filters.level, category: filters.category, sort: filters.sort === 'latest' ? undefined : filters.sort }} />
+                    <Pagination meta={courses} path="/courses" filters={{ q: filters.q, level: filters.level, category: filters.category, sort: filters.sort === 'latest' ? undefined : filters.sort, in_person: filters.in_person ? '1' : undefined }} />
                 </div>
             </section>
         </div>

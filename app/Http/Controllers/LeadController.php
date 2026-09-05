@@ -25,9 +25,16 @@ class LeadController extends Controller
         $leadData = [...$validated];
         unset($leadData['consent']);
 
-        $lead = Lead::create([...$leadData, 'source' => 'website', 'status' => 'new']);
+        $attribution = (array) $request->session()->get('instagram_attribution', []);
+        $source = ($attribution['source'] ?? null) === 'instagram' ? 'instagram' : 'website';
+        $lead = Lead::create([
+            ...$leadData,
+            'source' => $source,
+            'status' => 'new',
+            'attribution' => $attribution !== [] ? $attribution : null,
+        ]);
 
-        $leads->record($lead, 'note', 'لید جدید از فرم وب‌سایت ('.now()->format('Y/m/d H:i').')', $request->user());
+        $leads->record($lead, 'note', ($source === 'instagram' ? 'لید جدید از اینستاگرام و فرم وب‌سایت' : 'لید جدید از فرم وب‌سایت').' ('.now()->format('Y/m/d H:i').')', $request->user());
 
         // If this phone already belongs to a registered user, link the lead to
         // that account so the CRM sees one continuous journey.

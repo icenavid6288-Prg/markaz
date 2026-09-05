@@ -13,6 +13,7 @@ import {
     Mic,
     Phone,
     Rocket,
+    Route,
     Sparkles,
     Star,
     Target,
@@ -179,7 +180,7 @@ export default function Home() {
             <JourneyProgress />
             {/* ── ۱. Hero ── */}
             <section id="home-hero" data-journey-section="hero" style={heroBackgroundStyle} data-has-background={Boolean(site.hero.background)} className="reference-hero relative overflow-hidden pb-20 pt-28 md:pb-24 md:pt-32">
-                <div className="container-site grid items-center gap-10 pb-4 md:grid-cols-[1.05fr_0.95fr] md:gap-16">
+                <div className="container-site relative z-10 grid items-center gap-10 pb-4 md:grid-cols-[1.05fr_0.95fr] md:gap-16">
                     <div ref={heroRef} className="reveal flex flex-col items-start gap-6">
                         <div className="hero-kicker">
                             <span className="hero-kicker-line" />
@@ -243,14 +244,9 @@ export default function Home() {
                                 className="reference-hero-image"
                             />
                         ) : (
-                        <div className="reference-hero-illustration" role="img" aria-label="تصویرسازی مسیر رشد">
-                            <span className="reference-hero-illustration-sun" aria-hidden />
-                            <span className="reference-hero-illustration-route reference-hero-illustration-route-one" aria-hidden />
-                            <span className="reference-hero-illustration-route reference-hero-illustration-route-two" aria-hidden />
-                            <span className="reference-hero-illustration-node reference-hero-illustration-node-one" aria-hidden />
-                            <span className="reference-hero-illustration-node reference-hero-illustration-node-two" aria-hidden />
-                            <span className="reference-hero-illustration-monogram" aria-hidden>ر</span>
-                            <span className="reference-hero-illustration-caption">مسیر رشد</span>
+                        <div className="reference-hero-placeholder" role="img" aria-label="تصویر مسیر رشد">
+                            <Route className="size-16 text-brand-500" aria-hidden />
+                            <span>مسیر رشد</span>
                         </div>
                         )}
                         <div className="reference-hero-media-shade" />

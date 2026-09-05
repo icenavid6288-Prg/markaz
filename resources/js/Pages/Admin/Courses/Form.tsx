@@ -25,6 +25,11 @@ interface CourseFormData {
     is_published: boolean;
     is_featured: boolean;
     seo: { title: string | null; description: string | null; keywords: string | null } | null;
+    is_in_person?: boolean;
+    location?: string | null;
+    schedule?: Array<{ day: string; time: string; label: string }> | null;
+    max_students?: number | null;
+    in_person_description?: string | null;
 }
 
 interface CourseFormState {
@@ -44,6 +49,11 @@ interface CourseFormState {
     certificate_enabled: boolean;
     is_published: boolean;
     is_featured: boolean;
+    is_in_person: boolean;
+    location: string;
+    schedule: Array<{ day: string; time: string; label: string }>;
+    max_students: number | string;
+    in_person_description: string;
     seo_title: string;
     seo_description: string;
     seo_keywords: string;
@@ -83,6 +93,11 @@ export default function CourseForm() {
         certificate_enabled: course?.certificate_enabled ?? true,
         is_published: course?.is_published ?? false,
         is_featured: course?.is_featured ?? false,
+        is_in_person: course?.is_in_person ?? false,
+        location: course?.location ?? '',
+        schedule: (course?.schedule as Array<{ day: string; time: string; label: string }> | undefined) ?? [],
+        max_students: course?.max_students ?? '',
+        in_person_description: course?.in_person_description ?? '',
         seo_title: course?.seo?.title ?? '',
         seo_description: course?.seo?.description ?? '',
         seo_keywords: course?.seo?.keywords ?? '',
@@ -279,8 +294,67 @@ export default function CourseForm() {
                         />
                         صدور گواهینامه
                     </label>
+                    <label className="flex cursor-pointer items-center gap-2.5 text-sm font-bold text-navy/70">
+                        <input
+                            type="checkbox"
+                            checked={form.data.is_in_person}
+                            onChange={(e) => form.setData('is_in_person', e.target.checked)}
+                            className="size-4 rounded border-navy/20 text-brand-600 focus:ring-brand-500"
+                        />
+                        دوره حضوری
+                    </label>
                 </div>
             </section>
+
+            {form.data.is_in_person && (
+                <section className="rounded-2xl bg-white p-6 shadow-soft ring-1 ring-navy/5">
+                    <h2 className="mb-5 text-sm font-black text-navy">تنظیمات دوره حضوری</h2>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                        <div className="sm:col-span-2">
+                            <label className="mb-1.5 block text-xs font-bold text-navy/70">آدرس محل برگزاری</label>
+                            <input value={form.data.location} onChange={(e) => form.setData('location', e.target.value)} className={inputCls} placeholder="مثلاً: سالن ۳۰۱، ساختمان مرکز رشد" />
+                        </div>
+                        <div>
+                            <label className="mb-1.5 block text-xs font-bold text-navy/70">حداکثر ظرفیت</label>
+                            <input type="number" value={form.data.max_students} onChange={(e) => form.setData('max_students', e.target.value === '' ? '' : Number(e.target.value))} className={inputCls} placeholder="اختیاری" />
+                        </div>
+                        <div className="sm:col-span-2">
+                            <label className="mb-1.5 block text-xs font-bold text-navy/70">توضیحات حضوری</label>
+                            <textarea rows={3} value={form.data.in_person_description} onChange={(e) => form.setData('in_person_description', e.target.value)} className={inputCls} placeholder="اطلاعات تکمیلی درباره نحوه برگزاری کلاس حضوری..." />
+                        </div>
+                        <div className="sm:col-span-2">
+                            <label className="mb-1.5 block text-xs font-bold text-navy/70">زمان‌بندی کلاس‌ها</label>
+                            <div className="flex flex-col gap-3">
+                                {form.data.schedule.map((item, index) => (
+                                    <div key={index} className="flex items-center gap-3">
+                                        <input value={item.day} onChange={(e) => {
+                                            const newSchedule = [...form.data.schedule];
+                                            newSchedule[index] = { ...newSchedule[index], day: e.target.value };
+                                            form.setData('schedule', newSchedule);
+                                        }} className={inputCls} placeholder="مثلاً: شنبه" style={{ width: '120px' }} />
+                                        <input value={item.time} onChange={(e) => {
+                                            const newSchedule = [...form.data.schedule];
+                                            newSchedule[index] = { ...newSchedule[index], time: e.target.value };
+                                            form.setData('schedule', newSchedule);
+                                        }} className={inputCls} placeholder="مثلاً: ۱۴:۰۰ - ۱۶:۰۰" style={{ width: '180px' }} />
+                                        <input value={item.label} onChange={(e) => {
+                                            const newSchedule = [...form.data.schedule];
+                                            newSchedule[index] = { ...newSchedule[index], label: e.target.value };
+                                            form.setData('schedule', newSchedule);
+                                        }} className={inputCls} placeholder="عنوان (اختیاری)" style={{ width: '150px' }} />
+                                        <button type="button" onClick={() => {
+                                            form.setData('schedule', form.data.schedule.filter((_, i) => i !== index));
+                                        }} className="text-xs font-bold text-red-600 hover:underline">حذف</button>
+                                    </div>
+                                ))}
+                                <button type="button" onClick={() => {
+                                    form.setData('schedule', [...form.data.schedule, { day: '', time: '', label: '' }]);
+                                }} className="self-start rounded-xl border border-dashed border-brand-300 bg-brand-50/60 px-4 py-2 text-xs font-black text-brand-700 hover:bg-brand-50">+ اضافه کردن جلسه</button>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            )}
         </form>
     );
 }

@@ -1,4 +1,5 @@
 import { Link, useForm, usePage } from '@inertiajs/react';
+import { useState } from 'react';
 import { ArrowLeft, Award, BookOpen, CalendarDays, ClipboardList, HeartHandshake, TrendingUp, Users } from 'lucide-react';
 import type { ReactNode } from 'react';
 import ProfessionalLayout from '@/Layouts/ProfessionalLayout';
@@ -9,7 +10,8 @@ interface ChildStats { courses: number; average_progress: number; pending_assign
 interface Child { id: number; name?: string | null; avatar?: string | null; grade?: string | null; school?: string | null; stats: ChildStats; url: string; }
 
 export default function ParentDashboard() {
-    const { profile, children, stats } = usePage<PageProps & { profile: { name: string; relation?: string | null }; children: Child[]; stats: { children_count: number; courses_count: number; average_progress: number; pending_assignments: number; certificates: number; upcoming_sessions: number } }>().props;
+    const { profile, children, stats, selected_child_id } = usePage<PageProps & { profile: { name: string; relation?: string | null }; children: Child[]; selected_child_id?: number | null; stats: { children_count: number; courses_count: number; average_progress: number; pending_assignments: number; certificates: number; upcoming_sessions: number } }>().props;
+    const [selectedChild, setSelectedChild] = useState<number | null>(selected_child_id ?? children[0]?.id ?? null);
 
     return <ProfessionalLayout role="parent"><div className="mx-auto flex max-w-7xl flex-col gap-7">
         <section className="relative overflow-hidden rounded-[2rem] bg-deep-gradient p-7 text-white shadow-lift md:p-9">
@@ -30,6 +32,8 @@ export default function ParentDashboard() {
                 { label: 'جلسات کوچینگ پیش‌رو', value: stats.upcoming_sessions, icon: CalendarDays },
             ].map((item) => <div key={item.label} className="flex items-center gap-4 rounded-2xl border border-white/80 bg-white/80 p-5 shadow-soft"><span className="panel-stat-icon"><item.icon className="size-5" /></span><div><strong className="block text-2xl font-black text-navy">{typeof item.value === 'number' ? formatNumber(item.value) : item.value}</strong><span className="text-xs font-bold text-navy/45">{item.label}</span></div></div>)}
         </section>
+
+        <section className="rounded-2xl border border-brand-100 bg-white/75 p-5 shadow-soft"><div className="flex flex-wrap items-center justify-between gap-3"><div><div className="dashboard-eyebrow"><span /> فرزند فعال</div><h2 className="mt-2 text-xl font-black text-navy">اکنون گزارش کدام فرزند را دنبال می‌کنید؟</h2></div>{selectedChild && <Link href={children.find((child) => child.id === selectedChild)?.url ?? '/panel/parent'} className="inline-flex items-center gap-2 rounded-xl bg-brand-600 px-4 py-2.5 text-xs font-black text-white">مشاهده پرونده <ArrowLeft className="size-4" /></Link>}</div><div className="mt-4 flex gap-3 overflow-x-auto pb-1">{children.map((child) => <button key={child.id} type="button" onClick={() => { setSelectedChild(child.id); window.dispatchEvent(new CustomEvent('parent-child-selected', { detail: child.id })); }} className={`flex min-w-[12rem] items-center gap-3 rounded-xl border p-3 text-right transition ${selectedChild === child.id ? 'border-brand-500 bg-brand-50' : 'border-navy/10 bg-white'}`}><span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-brand-100 font-black text-brand-700">{child.name?.slice(0, 1) ?? '؟'}</span><span className="min-w-0"><strong className="block truncate text-sm text-navy">{child.name}</strong><small className="text-xs font-bold text-navy/45">{formatNumber(child.stats.average_progress)}٪ پیشرفت</small></span>{selectedChild === child.id && <span className="mr-auto size-2 rounded-full bg-brand-500" />}</button>)}</div></section>
 
         <section id="children" className="scroll-mt-24">
             <div className="mb-4"><div className="dashboard-eyebrow"><span /> فرزندان من</div><h2 className="mt-2 text-xl font-black text-navy">فرزندانی که به حساب شما متصل‌اند</h2><p className="mt-2 text-sm text-navy/50">برای دیدن جزئیات پیشرفت و گزارش‌ها، روی فرزند موردنظر کلیک کنید. اگر حساب فرزند ساخته شده، با شماره موبایلش او را وصل کنید.</p></div>

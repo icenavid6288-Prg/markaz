@@ -1,5 +1,5 @@
 import { Link, router, usePage } from '@inertiajs/react';
-import { ArrowRight, Award, Bookmark, CheckCircle2, ChevronLeft, CirclePlay, ClipboardList, Clock3, FileText, ListChecks, LockKeyhole, Paperclip, Play, RotateCcw, Send, Sparkles, StickyNote, XCircle } from 'lucide-react';
+import { ArrowRight, Award, Bookmark, CheckCircle2, ChevronLeft, CirclePlay, ClipboardList, Clock3, FileText, ListChecks, LockKeyhole, MapPin, Paperclip, Play, RotateCcw, Send, Sparkles, StickyNote, XCircle } from 'lucide-react';
 import { useMemo, useState, type ReactNode } from 'react';
 import UserDashboardLayout from '@/Layouts/UserDashboardLayout';
 import { formatDuration, formatNumber } from '@/lib/format';
@@ -10,7 +10,7 @@ interface Quiz { id: number; title: string; description: string | null; passing_
 interface Assignment { id: number; title: string; description: string | null; max_score: number; due_days: number | null; submission?: { id: number; content: string | null; attachment: string | null; attachment_url: string | null; status: string; score: number | null; feedback: string | null; submitted_at: string } | null; }
 interface Lesson { id: number; title: string; type: string; duration_minutes?: number | null; is_free: boolean; locked?: boolean; progress_percent: number; status?: string | null; video_url?: string | null; video_type?: string | null; content?: string | null; attachments?: Array<{ title?: string; url?: string }> | null; quiz?: Quiz | null; assignment?: Assignment | null }
 interface Module { id: number; title: string; lessons: Lesson[] }
-interface PlayerProps { course: { id: number; title: string; slug: string; thumbnail?: string | null }; enrollment: { preview?: boolean; progress_percent: number; certificate?: { number: string; url: string } | null }; lessons: Module[]; currentLesson: Lesson; note?: string | null; bookmarked?: boolean }
+interface PlayerProps { course: { id: number; title: string; slug: string; thumbnail?: string | null; is_in_person?: boolean; location?: string | null; schedule?: Array<{ day: string; time: string; label?: string }> | null; in_person_description?: string | null }; enrollment: { preview?: boolean; progress_percent: number; certificate?: { number: string; url: string } | null }; lessons: Module[]; currentLesson: Lesson; note?: string | null; bookmarked?: boolean }
 
 export default function Player() {
     const { course, enrollment, lessons, currentLesson, note = '', bookmarked = false } = usePage<PageProps & PlayerProps>().props;
@@ -36,7 +36,38 @@ export default function Player() {
 
     return <UserDashboardLayout>
         <div className="mx-auto flex max-w-7xl flex-col gap-6">
-            <header className="flex flex-wrap items-center justify-between gap-4"><div><Link href="/dashboard/courses" className="inline-flex items-center gap-2 text-xs font-black text-brand-700"><ArrowRight className="size-4" /> بازگشت به دوره‌های من</Link><h1 className="mt-3 text-2xl font-black text-navy">{course.title}</h1></div><div className="rounded-2xl bg-brand-50 px-4 py-3 text-xs font-black text-brand-700">پیشرفت دوره: {formatNumber(enrollment.progress_percent)}٪</div></header>
+            <header className="flex flex-wrap items-center justify-between gap-4"><div><Link href="/dashboard/courses" className="inline-flex items-center gap-2 text-xs font-black text-brand-700"><ArrowRight className="size-4" /> بازگشت به دوره‌های من</Link><h1 className="mt-3 text-2xl font-black text-navy">{course.title}</h1></div><div className="flex items-center gap-3"><div className="rounded-2xl bg-brand-50 px-4 py-3 text-xs font-black text-brand-700">پیشرفت دوره: {formatNumber(enrollment.progress_percent)}٪</div>{course.is_in_person && <div className="rounded-2xl bg-emerald-50 px-4 py-3 text-xs font-black text-emerald-700"><MapPin className="size-3.5 inline mr-1" /> دوره حضوری</div>}</div></header>
+            {course.is_in_person && (
+                <section className="rounded-3xl border border-emerald-200 bg-emerald-50/50 p-5">
+                    <div className="flex items-center gap-3 mb-3">
+                        <span className="flex size-10 items-center justify-center rounded-2xl bg-emerald-600 text-white"><MapPin className="size-5" /></span>
+                        <div>
+                            <h2 className="text-sm font-black text-navy">اطلاعات کلاس حضوری</h2>
+                            <p className="text-xs font-bold text-navy/50">جزئیات محل و زمان برگزاری</p>
+                        </div>
+                    </div>
+                    {course.location && (
+                        <div className="flex items-center gap-2 mb-2 text-sm font-bold text-navy/70">
+                            <MapPin className="size-4 text-emerald-600" />
+                            <span>{course.location}</span>
+                        </div>
+                    )}
+                    {course.in_person_description && (
+                        <p className="text-xs leading-6 text-navy/60 mt-2">{course.in_person_description}</p>
+                    )}
+                    {course.schedule && course.schedule.length > 0 && (
+                        <div className="mt-3 flex flex-wrap gap-2">
+                            {course.schedule.map((item, index) => (
+                                <span key={index} className="inline-flex items-center gap-1 rounded-xl bg-white px-3 py-1.5 text-xs font-bold text-navy/70 ring-1 ring-navy/10">
+                                    <span className="text-emerald-600">{item.day}</span>
+                                    <span className="text-navy/40">{item.time}</span>
+                                    {item.label && <span className="text-navy/40">— {item.label}</span>}
+                                </span>
+                            ))}
+                        </div>
+                    )}
+                </section>
+            )}
             {enrollment.progress_percent === 100 && <section className={`flex flex-wrap items-center justify-between gap-4 rounded-3xl border p-5 shadow-soft ${enrollment.certificate ? 'border-gold/40 bg-gradient-to-l from-gold/15 via-white/90 to-brand-50' : 'border-emerald-100 bg-emerald-50/70'}`}><div className="flex items-center gap-4"><span className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-gold text-white shadow-glow"><Award className="size-6" /></span><div><h2 className="text-sm font-black text-navy">تبریک! دوره را با موفقیت کامل کردید</h2><p className="mt-1 text-xs font-bold text-navy/55">{enrollment.certificate ? `گواهینامه پایان دوره شما با شماره ${enrollment.certificate.number} صادر شد.` : 'همه درس‌های این دوره را به پایان رساندید.'}</p></div></div>{enrollment.certificate && <Link href={enrollment.certificate.url} className="inline-flex items-center gap-2 rounded-2xl bg-brand-600 px-5 py-3 text-sm font-black text-white transition-colors hover:bg-brand-700"><Award className="size-4" /> مشاهده گواهینامه</Link>}</section>}
             <div className="grid gap-6 lg:grid-cols-[18rem_1fr]">
                 <aside className="order-2 rounded-3xl border border-white/80 bg-white/85 p-3 shadow-soft lg:order-1"><div className="px-3 py-3"><div className="flex items-center gap-2 text-xs font-black text-brand-700"><Sparkles className="size-4" /> نقشه یادگیری</div><div className="mt-3 h-2 overflow-hidden rounded-full bg-soft-gray"><span className="block h-full rounded-full bg-brand-600" style={{ width: `${enrollment.progress_percent}%` }} /></div></div><div className="max-h-[38rem] space-y-4 overflow-y-auto p-1">{lessons.map((module) => <div key={module.id}><h2 className="px-3 text-xs font-black text-navy/50">{module.title}</h2><div className="mt-2 space-y-1">{module.lessons.map((lesson) => <button key={lesson.id} type="button" disabled={lesson.locked} onClick={() => selectLesson(lesson)} title={lesson.locked ? 'برای دسترسی، درس قبلی (ویدیو/پادکست) را کامل تماشا کنید یا آزمون را با موفقیت پاس کنید' : undefined} className={`flex w-full items-center gap-2 rounded-xl px-3 py-3 text-right transition-colors ${active.id === lesson.id ? 'bg-brand-50 text-brand-800' : lesson.locked ? 'cursor-not-allowed text-navy/30' : 'text-navy/65 hover:bg-soft-gray'}`}><span className={`flex size-7 shrink-0 items-center justify-center rounded-lg shadow-sm ${lesson.locked ? 'bg-soft-gray text-navy/30' : 'bg-white text-brand-600'}`}>{lesson.locked ? <LockKeyhole className="size-3.5" /> : lesson.status === 'completed' ? <CheckCircle2 className="size-4" /> : lesson.quiz ? <ListChecks className="size-3.5" /> : lesson.assignment ? <ClipboardList className="size-3.5" /> : <Play className="size-3.5" />}</span><span className="min-w-0 flex-1 text-xs font-bold leading-5">{lesson.title}</span>{lesson.duration_minutes ? <span className="shrink-0 text-[0.6rem] text-navy/35">{formatDuration(lesson.duration_minutes)}</span> : null}</button>)}</div></div>)}</div></aside>

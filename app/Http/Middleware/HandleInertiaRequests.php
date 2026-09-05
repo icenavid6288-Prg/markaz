@@ -2,12 +2,15 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\Event;
 use App\Models\Menu;
 use App\Models\Setting;
 use App\Models\User;
 use App\Support\PageContent;
+use App\Support\Seo;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Vite;
 use Inertia\Middleware;
 
 class HandleInertiaRequests extends Middleware
@@ -40,6 +43,8 @@ class HandleInertiaRequests extends Middleware
                 ['title' => 'درباره ما', 'url' => '/about', 'children' => []],
                 ['title' => 'تیم ما', 'url' => '/team', 'children' => []],
                 ['title' => 'تماس با ما', 'url' => '/contact', 'children' => []],
+                ['title' => 'وبینارها', 'url' => '/events?type=webinar', 'children' => []],
+                ['title' => 'سمینارها', 'url' => '/events?type=seminar', 'children' => []],
             ],
             'footer' => [
                 ['title' => 'دوره‌ها', 'url' => '/courses', 'children' => []],
@@ -48,12 +53,20 @@ class HandleInertiaRequests extends Middleware
                 ['title' => 'فروشگاه', 'url' => '/shop', 'children' => []],
                 ['title' => 'بلاگ', 'url' => '/blog', 'children' => []],
                 ['title' => 'تیم ما', 'url' => '/team', 'children' => []],
+                ['title' => 'وبینارها', 'url' => '/events?type=webinar', 'children' => []],
+                ['title' => 'سمینارها', 'url' => '/events?type=seminar', 'children' => []],
             ],
         ];
     }
 
     public function share(Request $request): array
     {
+        if (config('security.csp_enabled')) {
+            $nonce = base64_encode(random_bytes(16));
+            $request->attributes->set('csp_nonce', $nonce);
+            Vite::useCspNonce($nonce);
+        }
+
         $user = $request->user();
 
         $menus = Cache::remember('public.menus.v1', now()->addMinutes(5), function () {
@@ -93,8 +106,33 @@ class HandleInertiaRequests extends Middleware
             $heroBackground = (string) (parse_url($heroBackground, PHP_URL_PATH) ?: '');
         }
 
+        $isPrivate = $request->is('admin', 'admin/*', 'dashboard', 'dashboard/*', 'panel/*', 'profile', 'cart', 'cart/*', 'checkout', 'checkout/*', 'login', 'login/*', 'register', 'forgot-password', 'reset-password', 'verify-email', 'confirm-password');
+        $sharedSeo = $isPrivate ? null : [
+            'title' => (string) Setting::get('meta_title', Setting::get('site_name', 'مرکز رشد و کارآفرینی دکتر بیدی')),
+            'description' => (string) Setting::get('meta_description', Setting::get('site_slogan', '')),
+            'keywords' => (string) Setting::get('keywords', ''),
+            'canonical' => $request->getSchemeAndHttpHost().$request->getPathInfo(),
+            'image' => null,
+            'type' => 'website',
+            'schema' => [
+                '@context' => 'https://schema.org',
+                '@graph' => [Seo::organizationSchema()],
+            ],
+        ];
+
+        $liveWebinar = Event::published()
+            ->where('type', 'webinar')
+            ->where('event_date', '<=', now())
+            ->where(function ($query) {
+                $query->whereNotNull('video_url')->orWhereNotNull('video_path');
+            })
+            ->latest('event_date')
+            ->first(['id', 'slug', 'title', 'event_date', 'video_url', 'video_path']);
+
         return [
             ...parent::share($request),
+            'seo' => $sharedSeo,
+            'csp_nonce' => $request->attributes->get('csp_nonce'),
             'auth' => [
                 'user' => $user ? [
                     'id' => $user->id,
@@ -155,6 +193,12 @@ class HandleInertiaRequests extends Middleware
                 ],
             ],
             'menus' => $menus,
+            'liveWebinar' => $liveWebinar ? [
+                'slug' => $liveWebinar->slug,
+                'title' => $liveWebinar->title,
+                'event_date' => $liveWebinar->event_date?->toIso8601String(),
+                'url' => $liveWebinar->video_path ?: $liveWebinar->video_url,
+            ] : null,
             'pageContent' => $pageContent,
             'flash' => [
                 'success' => session('success'),

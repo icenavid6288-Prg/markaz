@@ -1,6 +1,7 @@
 import { usePage } from '@inertiajs/react';
-import { useEffect, type ReactNode } from 'react';
+import { useEffect } from 'react';
 import { formatNumber } from '@/lib/format';
+import type { PageProps } from '@/types';
 
 interface PrintProps {
     generated_at: string;
@@ -14,7 +15,7 @@ interface PrintProps {
 const statusLabels: Record<string, string> = { paid: 'پرداخت‌شده', refunded: 'بازگشت وجه', pending: 'در انتظار', cancelled: 'لغو', failed: 'ناموفق' };
 
 export default function ReportsPrint() {
-    const { generated_at, summary, recent_orders } = usePage<PrintProps>().props;
+    const { generated_at, summary, recent_orders } = usePage<PageProps & PrintProps>().props;
     useEffect(() => { window.print(); }, []);
 
     return <div className="mx-auto max-w-4xl bg-white p-8 text-navy" dir="rtl">
@@ -47,4 +48,3 @@ export default function ReportsPrint() {
     </div>;
 }
 
-ReportsPrint.layout = (page: ReactNode) => page;

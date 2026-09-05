@@ -8,6 +8,7 @@ use App\Models\CoachingSession;
 use App\Models\Enrollment;
 use App\Models\QuizAttempt;
 use App\Models\Student;
+use App\Models\LessonProgress;
 use App\Models\Submission;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
@@ -31,6 +32,7 @@ class ParentDashboardController extends Controller
         return Inertia::render('Parent/Dashboard', [
             'profile' => ['name' => $user->name, 'relation' => $user->parentProfile?->relation],
             'children' => $payload,
+            'selected_child_id' => $request->session()->get('parent_selected_child_id'),
             'stats' => [
                 'children_count' => $payload->count(),
                 'courses_count' => (int) $payload->sum('stats.courses'),
@@ -40,6 +42,13 @@ class ParentDashboardController extends Controller
                 'upcoming_sessions' => (int) $payload->sum('stats.upcoming_sessions'),
             ],
         ]);
+    }
+
+    public function selectChild(Request $request, Student $student): RedirectResponse
+    {
+        abort_unless($student->parent_id === $request->user()->id, 403);
+        $request->session()->put('parent_selected_child_id', $student->id);
+        return back()->with('success', 'فرزند انتخاب‌شده تغییر کرد.');
     }
 
     public function linkChild(Request $request): RedirectResponse
@@ -115,6 +124,13 @@ class ParentDashboardController extends Controller
             ->limit(20)
             ->get();
 
+        $lessonProgress = LessonProgress::query()
+            ->with('lesson:id,title,course_id')
+            ->where('user_id', $student->user_id)
+            ->latest('updated_at')
+            ->limit(30)
+            ->get();
+
         $goals = CoachingGoal::query()
             ->withCount(['tasks as total_tasks'])
             ->withCount(['tasks as completed_tasks' => fn ($query) => $query->where('status', 'done')])
@@ -127,6 +143,23 @@ class ParentDashboardController extends Controller
         $pendingAssignments = $submissions->where('status', 'submitted')->count();
         $averageProgress = $enrollments->isNotEmpty() ? (int) round($enrollments->avg('progress_percent')) : 0;
         $completedCourses = $enrollments->where('status', 'completed')->count();
+        $activity = collect()
+            ->concat($lessonProgress->map(fn (LessonProgress $progress) => [
+                'type' => 'lesson', 'title' => $progress->lesson?->title ?? 'درس',
+                'context' => $progress->lesson?->course?->title, 'status' => $progress->status,
+                'at' => $progress->updated_at?->toISOString(),
+            ]))
+            ->concat($submissions->map(fn (Submission $submission) => [
+                'type' => 'assignment', 'title' => $submission->assignment?->title ?? 'تکلیف',
+                'context' => $submission->assignment?->course?->title, 'status' => $submission->status,
+                'at' => $submission->submitted_at?->toISOString(),
+            ]))
+            ->concat($attempts->map(fn (QuizAttempt $attempt) => [
+                'type' => 'quiz', 'title' => $attempt->quiz?->title ?? 'آزمون',
+                'context' => $attempt->quiz?->course?->title, 'status' => $attempt->passed ? 'passed' : 'attempted',
+                'at' => $attempt->submitted_at?->toISOString(),
+            ]))
+            ->sortByDesc('at')->take(20)->values();
 
         return Inertia::render('Parent/ChildReport', [
             'child' => [
@@ -187,6 +220,11 @@ class ParentDashboardController extends Controller
                     'scheduled_at' => $session->scheduled_at?->toISOString(),
                     'duration_minutes' => $session->duration_minutes,
                     'status' => $session->status,
+                ])->values(),
+                'activity' => $activity,
+                'in_person_courses' => $enrollments->filter(fn (Enrollment $enrollment) => (bool) $enrollment->course?->is_in_person)->map(fn (Enrollment $enrollment) => [
+                    'title' => $enrollment->course?->title, 'location' => $enrollment->course?->location,
+                    'schedule' => $enrollment->course?->schedule, 'progress_percent' => (int) $enrollment->progress_percent,
                 ])->values(),
                 'goals' => $goals->map(fn (CoachingGoal $goal) => [
                     'id' => $goal->id,

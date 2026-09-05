@@ -1,0 +1,35 @@
+import { router, useForm, usePage } from '@inertiajs/react';
+import { ArrowRight, FileText, Plus, Save, Trash2 } from 'lucide-react';
+import { useState, type FormEvent, type ReactNode } from 'react';
+
+const templateVariables = ['{name}', '{username}'];
+import AdminLayout from '@/Layouts/AdminLayout';
+import InstagramGuide from '@/Components/Admin/InstagramGuide';
+import { Button } from '@/Components/ui/Button';
+import type { PageProps } from '@/types';
+
+type Template = { id: number; name: string; type: string; body: string; enabled: boolean; variables: string[] };
+const inputClass = 'w-full rounded-xl border border-navy/10 bg-white px-4 py-3 text-sm text-navy outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-200';
+export default function InstagramTemplates() {
+    const { templates } = usePage<PageProps & { templates: Template[] }>().props;
+    const [editing, setEditing] = useState<Template | null>(null);
+    const form = useForm({ name: '', type: 'dm', body: '', enabled: true });
+    const startEdit = (item: Template) => { setEditing(item); form.setData({ name: item.name, type: item.type, body: item.body, enabled: item.enabled }); };
+    const reset = () => { setEditing(null); form.reset(); form.setData({ name: '', type: 'dm', body: '', enabled: true }); };
+    const submit = (event: FormEvent) => { event.preventDefault(); editing ? form.put(`/admin/instagram/templates/${editing.id}`, { preserveScroll: true, onSuccess: reset }) : form.post('/admin/instagram/templates', { preserveScroll: true, onSuccess: reset }); };
+    return <div className="flex flex-col gap-6"><div><a href="/admin/instagram" className="inline-flex items-center gap-2 text-xs font-bold text-navy/50 hover:text-brand-700"><ArrowRight className="size-4" /> بازگشت به Inbox</a><h1 className="mt-3 text-2xl font-black text-navy">قالب‌های پاسخ اینستاگرام</h1><p className="mt-2 text-sm text-navy/50">متن‌های پرتکرار را آماده کنید تا در اتوماسیون‌ها و پاسخ تیم استفاده شوند.</p></div>
+        <InstagramGuide
+            steps={[
+                { title: 'قالب را نام‌گذاری کنید', text: 'یک نام کوتاه و گویا مثل «خوش‌آمدگویی» یا «لینک ثبت‌نام» بگذارید تا در لیست راحت پیدا شود.' },
+                { title: 'نوع قالب را انتخاب کنید', text: '«دایرکت» برای پاسخ به پیام‌ها و «کامنت» برای جواب کامنت‌ها؛ قالب کامنت باید کوتاه‌تر باشد چون زیر پست عمومی نمایش داده می‌شود.' },
+                { title: 'متن را با متغیر بنویسید', text: 'روی یکی از دکمه‌های متغیر زیر کادر متن بزنید تا به متن اضافه شود؛ هنگام ارسال، مقدار واقعی کاربر جایگزین می‌شود.' },
+                { title: 'قالب‌ها را نگه دارید', text: 'قالب‌های فعال را در فرم پاسخ هر گفتگو ببینید؛ قالب غیرفعال در لیست می‌ماند اما انتخاب نمی‌شود.' },
+            ]}
+            hints={[
+                'قالب‌های خوب کوتاه و شخصی هستند؛ یک جمله خوش‌آمد + یک دعوت به اقدام (مثل «کد تخفیف اولین خرید: WELCOME»).',
+                'برای قالب کامنت از لینک بلند استفاده نکنید؛ اینستاگرام کامنت‌های حاوی لینک را کمتر نمایش می‌دهد.',
+            ]}
+        />
+        <section className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]"><form onSubmit={submit} className="rounded-2xl bg-white p-6 shadow-soft ring-1 ring-navy/5"><div className="flex items-center gap-2 text-sm font-black text-navy"><FileText className="size-5 text-brand-600" /> {editing ? 'ویرایش قالب' : 'قالب جدید'}</div><div className="mt-5 space-y-4"><label className="block"><span className="mb-1.5 block text-xs font-black text-navy/70">نام قالب</span><input value={form.data.name} onChange={(e) => form.setData('name', e.target.value)} className={inputClass} placeholder="خوش‌آمدگویی" /></label><label className="block"><span className="mb-1.5 block text-xs font-black text-navy/70">نوع</span><select value={form.data.type} onChange={(e) => form.setData('type', e.target.value)} className={inputClass}><option value="dm">دایرکت</option><option value="comment">کامنت</option></select></label><label className="block"><span className="mb-1.5 block text-xs font-black text-navy/70">متن قالب</span><textarea rows={8} value={form.data.body} onChange={(e) => form.setData('body', e.target.value)} className={inputClass} placeholder="سلام {name}، خوش آمدید..." /></label><div className="flex flex-wrap items-center gap-2"><span className="text-[0.68rem] font-bold text-navy/45">درج متغیر:</span>{templateVariables.map((variable) => <button key={variable} type="button" onClick={() => form.setData('body', `${form.data.body}${form.data.body && !form.data.body.endsWith(' ') ? ' ' : ''}${variable}`)} className="rounded-lg bg-brand-50 px-2.5 py-1 text-[0.65rem] font-black text-brand-700 hover:bg-brand-100" dir="ltr">{variable}</button>)}<span className="text-[0.68rem] text-navy/40">&#123;name&#125; نام و &#123;username&#125; آیدی کاربر را جای‌گذاری می‌کند.</span></div><label className="flex items-center gap-2 text-xs font-bold text-navy/60"><input type="checkbox" checked={form.data.enabled} onChange={(e) => form.setData('enabled', e.target.checked)} className="rounded border-navy/20 text-brand-600" /> فعال</label><div className="flex gap-2"><Button type="submit" loading={form.processing}><Save className="size-4" /> {editing ? 'ذخیره' : 'افزودن قالب'}</Button>{editing && <Button type="button" variant="outline" onClick={reset}>انصراف</Button>}</div></div></form><div className="rounded-2xl bg-white p-6 shadow-soft ring-1 ring-navy/5"><div className="flex items-center justify-between"><h2 className="text-sm font-black text-navy">قالب‌های شما</h2><span className="text-xs font-bold text-navy/40">{templates.length} قالب</span></div><div className="mt-4 space-y-3">{templates.map((item) => <article key={item.id} className="rounded-xl border border-navy/5 p-4"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><strong className="text-sm font-black text-navy">{item.name}</strong><span className="rounded-md bg-brand-50 px-2 py-1 text-[0.62rem] font-black text-brand-700">{item.type === 'comment' ? 'کامنت' : 'دایرکت'}</span>{!item.enabled && <span className="rounded-md bg-soft-gray px-2 py-1 text-[0.62rem] font-black text-navy/45">غیرفعال</span>}</div><p className="mt-2 whitespace-pre-wrap text-xs leading-6 text-navy/60">{item.body}</p></div><div className="flex shrink-0 gap-1"><button type="button" onClick={() => startEdit(item)} className="rounded-lg bg-soft-gray px-2.5 py-2 text-[0.65rem] font-black text-navy/60">ویرایش</button><button type="button" onClick={() => confirm('این قالب حذف شود؟') && router.delete(`/admin/instagram/templates/${item.id}`, { preserveScroll: true })} className="flex size-8 items-center justify-center rounded-lg bg-soft-gray text-red-500 hover:bg-red-50"><Trash2 className="size-3.5" /></button></div></div></article>)}{templates.length === 0 && <div className="rounded-xl bg-soft-gray p-8 text-center text-xs font-bold text-navy/45">هنوز قالبی ثبت نشده است.</div>}</div></div></section></div>;
+}
+InstagramTemplates.layout = (page: ReactNode) => <AdminLayout title="قالب‌های Instagram">{page}</AdminLayout>;

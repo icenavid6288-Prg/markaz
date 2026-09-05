@@ -16,6 +16,8 @@ class SitemapController extends Controller
     public function __invoke(): Response
     {
         $xml = Cache::remember('seo.sitemap.v1', now()->addMinutes(30), function (): string {
+            // Only canonical public URLs belong in the sitemap. url('/') keeps
+            // the host configurable through APP_URL in production.
             $base = rtrim((string) url('/'), '/');
             $lastmod = now()->toAtomString();
 
@@ -94,6 +96,7 @@ class SitemapController extends Controller
         return response($xml, 200, [
             'Content-Type' => 'application/xml; charset=UTF-8',
             'Cache-Control' => 'public, max-age=1800',
+            'X-Robots-Tag' => 'noindex',
         ]);
     }
 

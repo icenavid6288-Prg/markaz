@@ -30,6 +30,10 @@ class CourseController extends Controller
             }
         }
 
+        if ($request->boolean('in_person')) {
+            $query->where('is_in_person', true);
+        }
+
         if ($request->filled('q')) {
             $term = $request->string('q')->toString();
             $query->where(function ($q) use ($term) {
@@ -99,6 +103,7 @@ class CourseController extends Controller
                 'level' => $request->string('level')->toString(),
                 'category' => $category,
                 'sort' => $sort,
+                'in_person' => $request->boolean('in_person'),
             ],
         ]);
     }
@@ -126,6 +131,7 @@ class CourseController extends Controller
             'question' => $faq->question,
             'answer' => $faq->answer,
         ])->values();
+        // In-person fields are already included via CoursePresenter::payload()
 
         $reviews = $course->reviews()
             ->with('user')

@@ -17,6 +17,7 @@ interface CourseRow {
     discount_price: number | null;
     is_published: boolean;
     is_featured: boolean;
+    is_in_person: boolean;
     students_count: number;
     instructor?: { user?: { name?: string } } | null;
     category?: { name?: string } | null;
@@ -122,6 +123,7 @@ export default function CoursesIndex() {
                                         <div className="flex flex-col gap-1">
                                             {course.is_published ? <Badge tone="green">منتشرشده</Badge> : <Badge tone="gray">پیش‌نویس</Badge>}
                                             {course.is_featured && <Badge tone="gold">ویژه</Badge>}
+                                            {course.is_in_person && <Badge tone="navy">حضوری</Badge>}
                                         </div>
                                     </td>
                                     <td className="px-5 py-4">

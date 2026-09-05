@@ -65,7 +65,7 @@ class MediaLibraryController extends Controller
         abort_unless($file instanceof UploadedFile && $file->isValid(), 422, 'فایل معتبر نیست.');
 
         $media = Media::create([
-            'name' => $data['name'] ?: pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME),
+            'name' => ($data['name'] ?? '') ?: pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME),
             'file_name' => $file->getClientOriginalName(),
             'mime_type' => $file->getMimeType(),
             'disk' => 'public',
@@ -74,7 +74,7 @@ class MediaLibraryController extends Controller
             'url_path' => '/storage/media/pending',
             'alt' => $data['alt'] ?? null,
             'type' => Media::typeFromMime($file->getMimeType()),
-            'collection' => $data['collection'] ?: 'default',
+            'collection' => ($data['collection'] ?? '') ?: 'default',
             'version' => 1,
             'is_current' => true,
             'uploaded_by' => $request->user()->id,

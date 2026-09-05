@@ -21,6 +21,7 @@ import { DashboardScreen } from './src/screens/DashboardScreen';
 import { ProfileScreen } from './src/screens/ProfileScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
 import { CourseDetailScreen } from './src/screens/CourseDetailScreen';
+import { LearningScreen } from './src/screens/LearningScreen';
 import { ProductDetailScreen } from './src/screens/ProductDetailScreen';
 
 // Prepare the app for right-to-left Persian layout.
@@ -125,6 +126,7 @@ function RootNavigator() {
                 <>
                     <Stack.Screen name="Tabs" component={MainTabs} options={{ headerShown: false }} />
                     <Stack.Screen name="CourseDetail" component={CourseDetailScreen} options={{ title: 'دوره' }} />
+                    <Stack.Screen name="Learning" component={LearningScreen} options={{ title: 'یادگیری' }} />
                     <Stack.Screen name="ProductDetail" component={ProductDetailScreen} options={{ title: 'محصول' }} />
                     <Stack.Screen name="Settings" component={SettingsScreen} options={{ title: 'تنظیمات' }} />
                 </>

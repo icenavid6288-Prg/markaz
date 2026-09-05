@@ -67,14 +67,16 @@ class CartController extends Controller
         $validated = $request->validate([
             'code' => ['required', 'string', 'max:32'],
         ]);
+        $validated['code'] = mb_strtoupper(trim(preg_replace('/\s+/u', '', $validated['code']) ?? $validated['code']));
 
-        $totals = $this->cartData($request)['totals'];
-        $coupon = app(OrderFulfillment::class)->findValidCoupon($validated['code'], (int) $totals['total']);
+        $cartData = $this->cartData($request);
+        $itemsTotal = (int) $cartData['items']->sum('total');
+        $coupon = app(OrderFulfillment::class)->findValidCoupon($validated['code'], $itemsTotal);
         if (! $coupon) {
             return back()->withErrors(['code' => 'کد تخفیف معتبر نیست یا منقضی شده است.']);
         }
 
-        $request->session()->put('cart_coupon', $coupon->code);
+        $request->session()->put('cart_coupon', mb_strtoupper(trim($coupon->code)));
 
         return back()->with('success', 'کد تخفیف اعمال شد.');
     }
@@ -183,12 +185,13 @@ class CartController extends Controller
         return redirect()->route('checkout.show', ['order' => $order->order_number]);
     }
 
-    /** @return array{items: \Illuminate\Support\Collection, totals: array{subtotal: int, discount: int, total: int}} */
+    /** @return array{items: \Illuminate\Support\Collection, coupon?: array{code: string, discount: int}|null, totals: array{subtotal: int, discount: int, total: int}} */
     private function cartData(Request $request): array
     {
         $cart = $this->cart($request);
         if ($cart === []) {
-            return ['items' => collect(), 'totals' => ['subtotal' => 0, 'discount' => 0, 'total' => 0]];
+            $request->session()->forget('cart_coupon');
+            return ['items' => collect(), 'coupon' => null, 'totals' => ['subtotal' => 0, 'discount' => 0, 'total' => 0]];
         }
 
         $products = Product::active()->whereIn('id', array_keys($cart))->get()->keyBy('id');
@@ -223,7 +226,11 @@ class CartController extends Controller
 
         $subtotal = (int) $items->sum(fn ($item) => $item['price'] * $item['quantity']);
         $itemsTotal = (int) $items->sum('total');
-        $coupon = app(OrderFulfillment::class)->findValidCoupon((string) $request->session()->get('cart_coupon', ''), $itemsTotal);
+        $couponCode = (string) $request->session()->get('cart_coupon', '');
+        $coupon = app(OrderFulfillment::class)->findValidCoupon($couponCode, $itemsTotal);
+        if ($couponCode !== '' && ! $coupon) {
+            $request->session()->forget('cart_coupon');
+        }
         $couponDiscount = $coupon ? $coupon->discountFor($itemsTotal) : 0;
         $total = max(0, $itemsTotal - $couponDiscount);
 

@@ -12,6 +12,7 @@ use App\Services\Sms\KavenegarSmsSender;
 use App\Services\Sms\MelipayamakSmsSender;
 use App\Services\Sms\SmsIrSmsSender;
 use App\Services\Sms\SmsSender;
+use App\Services\Instagram\InstagramService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -33,6 +34,7 @@ class SettingsController extends Controller
         'payment_zarinpal_merchant_id', 'payment_zarinpal_access_token', 'payment_idpay_api_key', 'payment_zibal_merchant',
         'eitaa_bot_token',
         'chat_ai_api_key',
+        'instagram_access_token', 'instagram_app_secret', 'instagram_webhook_verify_token',
     ];
 
     private const ALLOWED_KEYS = [
@@ -53,7 +55,10 @@ class SettingsController extends Controller
         'payment_idpay_api_key', 'payment_idpay_sandbox', 'payment_zibal_merchant', 'payment_zibal_sandbox',
         'eitaa_bot_token', 'eitaa_channel_id', 'eitaa_post_template', 'eitaa_summary_image',
         'chat_enabled', 'chat_title', 'chat_greeting', 'chat_ai_enabled', 'chat_ai_api_key',
-        'chat_ai_base_url', 'chat_ai_model', 'chat_ai_system_prompt',
+        'chat_ai_base_url', 'chat_ai_model',        'chat_ai_system_prompt',
+        'instagram_enabled', 'instagram_app_id', 'instagram_app_secret', 'instagram_business_account_id', 'instagram_access_token', 'instagram_api_version', 'instagram_login_mode', 'instagram_webhook_url', 'instagram_webhook_fields', 'instagram_webhook_verify_token',
+        'instagram_auto_reply_enabled', 'instagram_dm_auto_reply_enabled', 'instagram_comment_auto_reply_enabled',
+        'instagram_private_reply_enabled', 'instagram_dm_auto_reply', 'instagram_comment_auto_reply',
     ];
 
     /**
@@ -66,6 +71,7 @@ class SettingsController extends Controller
         'payment' => ['component' => 'Admin/Settings/Payments', 'groups' => ['payment']],
         'automation' => ['component' => 'Admin/Settings/Automations', 'groups' => ['eitaa', 'winback', 'lead_reminder']],
         'chat' => ['component' => 'Admin/Settings/Chat', 'groups' => ['chat']],
+        'instagram' => ['component' => 'Admin/Settings/Instagram', 'groups' => ['instagram']],
     ];
 
     public function index(): Response
@@ -91,6 +97,89 @@ class SettingsController extends Controller
     public function chat(): Response
     {
         return $this->settingsPage('chat');
+    }
+
+    public function instagram(): Response
+    {
+        return $this->settingsPage('instagram');
+    }
+
+    public function instagramConnect(Request $request, InstagramService $instagram): RedirectResponse
+    {
+        $appId = (string) Setting::get('instagram_app_id', '');
+        $redirectUri = $request->fullUrlIs('*') ? route('admin.settings.instagram.callback') : '';
+        if ($appId === '' || $redirectUri === '') {
+            return back()->with('error', 'ابتدا App ID اینستاگرام و آدرس سایت را تنظیم کنید.');
+        }
+
+        $state = bin2hex(random_bytes(24));
+        $request->session()->put('instagram.oauth_state', $state);
+        $scope = implode(',', ['instagram_business_basic', 'instagram_business_manage_messages', 'instagram_business_manage_comments', 'instagram_business_content_publish']);
+        $query = http_build_query([
+            'client_id' => $appId,
+            'redirect_uri' => $redirectUri,
+            'scope' => $scope,
+            'response_type' => 'code',
+            'state' => $state,
+        ]);
+
+        return redirect('https://www.instagram.com/oauth/authorize?'.$query);
+    }
+
+    public function instagramCallback(Request $request, InstagramService $instagram): RedirectResponse
+    {
+        $state = (string) $request->query('state', '');
+        if ($state === '' || ! hash_equals((string) $request->session()->pull('instagram.oauth_state', ''), $state)) {
+            return redirect()->route('admin.settings.instagram')->with('error', 'درخواست اتصال اینستاگرام معتبر نیست. دوباره تلاش کنید.');
+        }
+        if ($request->filled('error')) {
+            return redirect()->route('admin.settings.instagram')->with('error', 'اتصال اینستاگرام لغو شد: '.(string) $request->query('error_description', ''));
+        }
+
+        try {
+            $instagram->connectWithAuthorizationCode((string) $request->query('code', ''), route('admin.settings.instagram.callback'));
+            return redirect()->route('admin.settings.instagram')->with('success', 'اکانت اینستاگرام با موفقیت متصل شد.');
+        } catch (Throwable $exception) {
+            report($exception);
+            return redirect()->route('admin.settings.instagram')->with('error', 'اتصال اینستاگرام ناموفق بود: '.$exception->getMessage());
+        }
+    }
+
+    public function instagramStatus(InstagramService $instagram): JsonResponse
+    {
+        return response()->json($instagram->health());
+    }
+
+    public function instagramTest(InstagramService $instagram): RedirectResponse
+    {
+        try {
+            $result = $instagram->testConnection();
+
+            return back()->with($result['ok'] ? 'success' : 'error', $result['message']);
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return back()->with('error', 'بررسی اتصال اینستاگرام ناموفق بود: '.$exception->getMessage());
+        }
+    }
+
+    public function instagramRefresh(InstagramService $instagram): RedirectResponse
+    {
+        try {
+            $result = $instagram->refreshToken();
+
+            return back()->with($result['ok'] ? 'success' : 'error', $result['message']);
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return back()->with('error', 'به‌روزرسانی توکن اینستاگرام ناموفق بود: '.$exception->getMessage());
+        }
+    }
+
+    public function instagramDisconnect(InstagramService $instagram): RedirectResponse
+    {
+        $instagram->disconnect();
+        return back()->with('success', 'اتصال اینستاگرام قطع شد.');
     }
 
     private function settingsPage(string $page): Response
@@ -451,6 +540,7 @@ class SettingsController extends Controller
         if (str_starts_with($key, 'winback_')) return 'winback';
         if (str_starts_with($key, 'lead_reminder_')) return 'lead_reminder';
         if (str_starts_with($key, 'chat_')) return 'chat';
+        if (str_starts_with($key, 'instagram_')) return 'instagram';
         if (in_array($key, ['site_name', 'site_slogan', 'logo', 'app_logo'], true)) return 'brand';
         if (in_array($key, ['address', 'phone', 'email', 'eitaa', 'website', 'working_hours'], true)) return 'contact';
         if (in_array($key, ['instagram_url', 'eitaa_url'], true)) return 'social';

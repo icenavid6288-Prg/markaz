@@ -10,6 +10,7 @@ use App\Models\Course;
 use App\Models\CourseModule;
 use App\Models\Enrollment;
 use App\Models\Lesson;
+use App\Models\LessonProgress;
 use App\Models\Question;
 use App\Models\Quiz;
 use App\Models\QuizAttempt;
@@ -53,7 +54,9 @@ class ParentPanelTest extends TestCase
         $course = Course::factory()->create();
         $module = CourseModule::create(['course_id' => $course->id, 'title' => 'ماژول', 'slug' => 'mod', 'sort_order' => 1]);
         $lesson = Lesson::create(['course_id' => $course->id, 'module_id' => $module->id, 'title' => 'درس', 'slug' => 'l1', 'type' => 'video', 'video_url' => 'https://example.com/v.mp4', 'sort_order' => 1]);
+        $course->update(['is_in_person' => true, 'location' => 'مرکز رشد', 'schedule' => ['شنبه ۱۰ تا ۱۲']]);
         Enrollment::create(['user_id' => $student->id, 'course_id' => $course->id, 'status' => 'active', 'progress_percent' => 50, 'enrolled_at' => now()]);
+        LessonProgress::create(['user_id' => $student->id, 'lesson_id' => $lesson->id, 'status' => 'completed', 'progress_percent' => 100, 'completed_at' => now()]);
 
         $assignment = Assignment::create(['lesson_id' => $lesson->id, 'course_id' => $course->id, 'title' => 'تمرین', 'max_score' => 100]);
         Submission::create(['assignment_id' => $assignment->id, 'user_id' => $student->id, 'content' => 'پاسخ', 'status' => 'submitted', 'submitted_at' => now()]);
@@ -110,7 +113,11 @@ class ParentPanelTest extends TestCase
                 ->has('child.sessions', 1)
                 ->has('child.goals', 1)
                 ->has('child.certificates', 1)
-                ->where('child.stats.pending_assignments', 1));
+                ->where('child.stats.pending_assignments', 1)
+                ->has('child.activity', 3)
+                ->where('child.activity.0.type', 'lesson')
+                ->has('child.in_person_courses', 1)
+                ->where('child.in_person_courses.0.location', 'مرکز رشد'));
     }
 
     public function test_parent_cannot_view_another_parents_child(): void

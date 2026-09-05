@@ -100,7 +100,7 @@ class IntegrityFixesTest extends TestCase
             'is_active' => true,
         ]);
         Coupon::create([
-            'code' => 'GIFT10',
+            'code' => ' GIFT10 ',
             'type' => 'percent',
             'value' => 10,
             'max_uses' => 1,
@@ -111,7 +111,7 @@ class IntegrityFixesTest extends TestCase
 
         $this->actingAs($user)
             ->withSession(['cart' => [$product->id => 1]])
-            ->post('/cart/coupon', ['code' => 'GIFT10'])
+            ->post('/cart/coupon', ['code' => ' gift 10 '])
             ->assertSessionHas('success');
 
         $this->actingAs($user)

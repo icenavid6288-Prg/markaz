@@ -130,7 +130,9 @@ class CertificateFlowTest extends TestCase
 
     public function test_pdf_is_generated_and_stored_on_issuance(): void
     {
-        Storage::fake('public');
+        // Certificates live on the private local disk and are streamed through
+        // the auth-gated download route, never exposed on the public disk.
+        Storage::fake('local');
         ['user' => $user, 'course' => $course, 'lesson' => $lesson] = $this->courseWithOneLesson();
 
         $this->actingAs($user)->post(route('learning.progress', ['course' => $course->slug, 'lesson' => $lesson->id]), ['progress_percent' => 100, 'status' => 'completed'])->assertRedirect();
@@ -138,7 +140,7 @@ class CertificateFlowTest extends TestCase
         $certificate = Certificate::where('user_id', $user->id)->where('course_id', $course->id)->firstOrFail();
         $this->assertNotNull($certificate->file_path);
         $this->assertStringEndsWith('.pdf', $certificate->file_path);
-        Storage::disk('public')->assertExists($certificate->file_path);
+        Storage::disk('local')->assertExists($certificate->file_path);
     }
 
     public function test_download_returns_the_pdf_file(): void

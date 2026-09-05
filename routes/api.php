@@ -6,7 +6,14 @@ use App\Http\Controllers\Api\V1\CommerceController;
 use App\Http\Controllers\Api\V1\DashboardController;
 use App\Http\Controllers\Api\V1\HomeController;
 use App\Http\Controllers\Api\V1\LearningController;
+use App\Http\Controllers\InstagramWebhookController;
 use Illuminate\Support\Facades\Route;
+
+Route::get('/instagram/webhook', [InstagramWebhookController::class, 'verify'])->name('instagram.webhook.verify');
+Route::post('/instagram/webhook', [InstagramWebhookController::class, 'receive'])->name('instagram.webhook.receive');
+
+// Reserved for a future official Eitaa inbound API; answers 501 with an explanation today.
+Route::post('/eitaa/webhook/{bot}', [\App\Http\Controllers\EitaaWebhookController::class, 'receive'])->name('eitaa.webhook.receive');
 
 Route::prefix('v1')->middleware('throttle:60,1')->group(function (): void {
     Route::get('/home', [HomeController::class, 'index'])->name('api.v1.home');
@@ -28,7 +35,7 @@ Route::prefix('v1')->middleware('throttle:60,1')->group(function (): void {
         ->name('api.v1.dashboard');
 
     Route::middleware('auth:sanctum')->group(function (): void {
-        Route::post('/courses/{course:slug}/checkout', [CommerceController::class, 'checkoutCourse'])->name('api.v1.courses.checkout');
+        Route::post('/courses/{course:slug}/checkout', [CommerceController::class, 'checkoutCourse'])->middleware('throttle:10,1')->name('api.v1.courses.checkout');
         Route::post('/cart/products/{product}', [CommerceController::class, 'addToCart'])->name('api.v1.cart.store');
         Route::post('/wishlist', [CommerceController::class, 'toggleWishlist'])->name('api.v1.wishlist.toggle');
         Route::get('/learning/{course:slug}/{lesson?}', [LearningController::class, 'show'])->name('api.v1.learning.show');

@@ -81,7 +81,16 @@ class CoursePlayerController extends Controller
         $bookmarked = Bookmark::query()->where('user_id', $request->user()->id)->where('lesson_id', $current->id)->exists();
 
         return Inertia::render('Learning/Player', [
-            'course' => ['id' => $course->id, 'title' => $course->title, 'slug' => $course->slug, 'thumbnail' => $course->thumbnail],
+            'course' => [
+                'id' => $course->id,
+                'title' => $course->title,
+                'slug' => $course->slug,
+                'thumbnail' => $course->thumbnail,
+                'is_in_person' => $course->is_in_person,
+                'location' => $course->location,
+                'schedule' => $course->schedule,
+                'in_person_description' => $course->in_person_description,
+            ],
             'enrollment' => [
                 'preview' => $preview,
                 'progress_percent' => (int) $enrollment->progress_percent,
@@ -119,9 +128,31 @@ class CoursePlayerController extends Controller
         return back()->with('success', 'پیشرفت درس ذخیره شد.');
     }
 
-    private function enrollment(Request $request, Course $course): Enrollment
+    /**
+     * Resolve the viewer's enrollment, or an unsaved model when they are not
+     * enrolled yet (preview mode is signalled by ->exists === false).
+     */
+    private function resolveEnrollment(Request $request, Course $course): Enrollment
     {
-        return Enrollment::query()->where('user_id', $request->user()->id)->where('course_id', $course->id)->firstOrFail();
+        return Enrollment::query()
+            ->where('user_id', $request->user()->id)
+            ->where('course_id', $course->id)
+            ->firstOrNew();
+    }
+
+    /**
+     * Require a saved enrollment (progress actions) or bail out with 403.
+     */
+    private function requireEnrollment(Request $request, Course $course): Enrollment
+    {
+        $enrollment = Enrollment::query()
+            ->where('user_id', $request->user()->id)
+            ->where('course_id', $course->id)
+            ->first();
+
+        abort_unless($enrollment, 403, 'برای این اقدام باید در دوره ثبت‌نام کنید.');
+
+        return $enrollment;
     }
 
     /**

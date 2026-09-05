@@ -160,11 +160,13 @@ class CommerceAndMediaTest extends TestCase
             ->assertOk()
             ->assertInertia(fn ($page) => $page->component('Admin/Reports/Index')->where('summary.enrollments', 1));
 
-        $this->actingAs($admin)->get('/admin/reports/enrollments.csv')
+        $csvResponse = $this->actingAs($admin)->get('/admin/reports/enrollments.csv')
             ->assertOk()
-            ->assertHeader('content-type', 'text/csv; charset=UTF-8')
-            ->assertSee('دوره گزارش', false)
-            ->assertSee('دانش‌آموز گزارش', false);
+            ->assertHeader('content-type', 'text/csv; charset=UTF-8');
+
+        $csv = $csvResponse->streamedContent();
+        $this->assertStringContainsString('دوره گزارش', $csv);
+        $this->assertStringContainsString('دانش‌آموز گزارش', $csv);
     }
 
     /**

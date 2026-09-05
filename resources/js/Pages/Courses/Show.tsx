@@ -13,6 +13,7 @@ import {
     Heart,
     HeartHandshake,
     LayoutList,
+    MapPin,
     MessageCircle,
     PlayCircle,
     ShieldCheck,
@@ -55,6 +56,11 @@ interface CourseDetail extends Omit<CourseCardData, 'instructor'> {
     instructor?: InstructorData | null;
     modules: ModuleData[];
     faqs?: Array<{ id: number; question: string; answer: string }>;
+    is_in_person?: boolean;
+    location?: string | null;
+    schedule?: Array<{ day: string; time: string; label?: string }> | null;
+    max_students?: number | null;
+    in_person_description?: string | null;
 }
 
 interface CourseReview {
@@ -140,7 +146,7 @@ export default function CourseShow() {
     return (
         <div className="course-detail-page bg-cream">
             {/* Breadcrumb */}
-            <div className="border-b border-navy/5 bg-white pt-24 md:pt-28">
+            <div className="course-breadcrumb border-b border-navy/5 bg-white pt-24 md:pt-28">
                 <div className="container-site py-4">
                     <nav className="flex items-center gap-2 overflow-x-auto whitespace-nowrap text-xs font-bold text-navy/45" aria-label="مسیر صفحه">
                         <Link href="/" className="transition-colors hover:text-brand-700">خانه</Link>
@@ -162,6 +168,7 @@ export default function CourseShow() {
                         <div className="order-2 text-white lg:order-1">
                             <div className="flex flex-wrap items-center gap-2">
                                 <Badge tone="gold">{levelLabels[course.level] ?? course.level}</Badge>
+                                {course.is_in_person && <Badge tone="green"><MapPin className="size-3.5" /> دوره حضوری</Badge>}
                                 {course.certificate_enabled && <Badge tone="navy"><Award className="size-3.5" /> گواهینامه معتبر</Badge>}
                                 {enrollment.is_enrolled && <span className="course-enrolled-badge"><CheckCircle2 className="size-3.5" /> در دوره شما</span>}
                             </div>
@@ -191,7 +198,7 @@ export default function CourseShow() {
                                         <div><span className="block text-xs font-bold text-navy/45">هزینه دسترسی کامل</span><strong className="mt-1 block text-2xl font-black text-navy">{formatPrice(finalPrice)}</strong></div>
                                         {hasDiscount && <span className="rounded-full bg-gold/15 px-2.5 py-1 text-xs font-black text-gold">ویژه</span>}
                                     </div>
-                                    {hasDiscount && <div className="mt-1 text-xs text-navy/35 line-through">{formatPrice(course.price)}</div>}
+                                    {hasDiscount && <div className="relative mt-2 inline-block text-lg font-bold text-navy/55" aria-label={`قیمت قبلی ${formatPrice(course.price)}`}><span>{formatPrice(course.price)}</span><span className="pointer-events-none absolute inset-x-[-0.25rem] top-1/2 h-0.5 -rotate-12 bg-red-600" aria-hidden="true" /></div>}
                                     <div className="mt-5">{enrollmentAction}</div>
                                     <div className="mt-4 flex items-center justify-between text-[0.68rem] font-bold text-navy/45"><span className="flex items-center gap-1.5"><ShieldCheck className="size-3.5 text-brand-600" /> دسترسی امن و دائمی</span><span>بدون ریسک</span></div>
                                     {enrollment.is_enrolled && <div className="course-progress-box mt-5"><div className="flex items-center justify-between text-xs font-black text-navy/65"><span>پیشرفت شما</span><span className="text-brand-700">{formatNumber(progress)}٪</span></div><div className="course-progress-track mt-2"><span style={{ width: `${progress}%` }} /></div><p className="mt-2 text-[0.68rem] font-bold text-navy/40">{progress === 100 ? 'دوره را کامل کرده‌اید' : 'هر قدم شما را به استقلال نزدیک‌تر می‌کند'}</p></div>}
@@ -222,6 +229,60 @@ export default function CourseShow() {
                             <div className="hero-kicker"><span className="hero-kicker-line" /><span>درباره دوره</span></div>
                             <h2 className="mt-3 text-2xl font-black text-navy md:text-3xl">یک قدم روشن برای ساختن آینده</h2>
                             <p className="mt-5 whitespace-pre-line text-sm leading-8 text-navy/65 md:text-base">{course.description || course.subtitle || 'در این دوره، مسیر یادگیری شما با محتوای کاربردی و تمرین‌های قابل اجرا طراحی شده است.'}</p>
+                            
+                            {course.is_in_person && (
+                                <div className="mt-8 rounded-3xl border border-brand-200 bg-brand-50/50 p-6">
+                                    <div className="flex items-center gap-3 mb-4">
+                                        <span className="flex size-10 items-center justify-center rounded-2xl bg-brand-600 text-white"><MapPin className="size-5" /></span>
+                                        <div>
+                                            <h3 className="text-base font-black text-navy">دوره حضوری</h3>
+                                            <p className="text-xs font-bold text-navy/50">اطلاعات محل و زمان برگزاری</p>
+                                        </div>
+                                    </div>
+                                    
+                                    {course.location && (
+                                        <div className="flex items-start gap-3 mb-4 p-3 rounded-2xl bg-white/70">
+                                            <MapPin className="size-4 mt-0.5 text-brand-600" />
+                                            <div>
+                                                <p className="text-xs font-black text-navy/70">محل برگزاری</p>
+                                                <p className="text-sm font-bold text-navy">{course.location}</p>
+                                            </div>
+                                        </div>
+                                    )}
+                                    
+                                    {course.in_person_description && (
+                                        <div className="mb-4 p-3 rounded-2xl bg-white/70">
+                                            <p className="text-xs font-black text-navy/70 mb-1">توضیحات</p>
+                                            <p className="text-sm leading-7 text-navy/70">{course.in_person_description}</p>
+                                        </div>
+                                    )}
+                                    
+                                    {course.schedule && course.schedule.length > 0 && (
+                                        <div className="p-3 rounded-2xl bg-white/70">
+                                            <p className="text-xs font-black text-navy/70 mb-3">زمان‌بندی کلاس‌ها</p>
+                                            <div className="flex flex-col gap-2">
+                                                {course.schedule.map((item, index) => (
+                                                    <div key={index} className="flex items-center gap-3">
+                                                        <span className="flex size-8 items-center justify-center rounded-xl bg-brand-100 text-brand-700 text-xs font-black">{index + 1}</span>
+                                                        <div className="flex-1">
+                                                            <span className="text-sm font-bold text-navy">{item.day}</span>
+                                                            <span className="mr-2 text-xs text-navy/50">{item.time}</span>
+                                                            {item.label && <span className="mr-2 text-xs text-navy/40">— {item.label}</span>}
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                    
+                                    {course.max_students && (
+                                        <div className="mt-4 flex items-center gap-2 text-xs font-bold text-navy/60">
+                                            <Users className="size-4" />
+                                            <span>حداکثر ظرفیت: {course.max_students} نفر</span>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                             <div className="mt-8 grid gap-4 sm:grid-cols-2">
                                 {[
                                     { icon: CheckCircle2, title: 'محتوای کاربردی', text: 'یادگیری مرحله‌به‌مرحله برای استفاده در زندگی واقعی' },
@@ -253,7 +314,7 @@ export default function CourseShow() {
                         </section>}
                     </div>
 
-                    <aside className="hidden lg:block"><div className="course-detail-side-card sticky top-32"><div className="flex items-center gap-3"><span className="glass-tile"><HeartHandshake className="size-5" /></span><div><p className="text-xs font-bold text-navy/45">آماده شروع هستید؟</p><h3 className="text-sm font-black text-navy">مسیر رشد شما از اینجا شروع می‌شود</h3></div></div><div className="mt-5">{enrollmentAction}</div>{enrollment.is_enrolled && <div className="mt-5"><div className="flex justify-between text-xs font-black text-navy/55"><span>پیشرفت دوره</span><span className="text-brand-700">{formatNumber(progress)}٪</span></div><div className="course-progress-track mt-2"><span style={{ width: `${progress}%` }} /></div></div>}<div className="mt-5 space-y-3 border-t border-navy/5 pt-5 text-xs font-bold text-navy/50"><div className="flex items-center gap-2"><ShieldCheck className="size-4 text-brand-600" /> دسترسی مادام‌العمر به دوره</div><div className="flex items-center gap-2"><Award className="size-4 text-gold" /> {course.certificate_enabled ? 'گواهینامه پایان دوره' : 'تمرین‌های کاربردی'}</div><div className="flex items-center gap-2"><HeartHandshake className="size-4 text-brand-600" /> همراهی در مسیر یادگیری</div></div></div></aside>
+                    <aside className="hidden lg:block"><div className="course-detail-side-card sticky top-32"><div className="flex items-center gap-3"><span className="glass-tile"><HeartHandshake className="size-5" /></span><div><p className="text-xs font-bold text-navy/45">آماده شروع هستید؟</p><h3 className="text-sm font-black text-navy">مسیر رشد شما از اینجا شروع می‌شود</h3></div></div><div className="mt-5">{enrollmentAction}</div>{enrollment.is_enrolled && <div className="mt-5"><div className="flex justify-between text-xs font-black text-navy/55"><span>پیشرفت دوره</span><span className="text-brand-700">{formatNumber(progress)}٪</span></div><div className="course-progress-track mt-2"><span style={{ width: `${progress}%` }} /></div></div>}                            <div className="mt-5 space-y-3 border-t border-navy/5 pt-5 text-xs font-bold text-navy/50"><div className="flex items-center gap-2"><ShieldCheck className="size-4 text-brand-600" /> دسترسی مادام‌العمر به دوره</div><div className="flex items-center gap-2"><Award className="size-4 text-gold" /> {course.certificate_enabled ? 'گواهینامه پایان دوره' : 'تمرین‌های کاربردی'}</div><div className="flex items-center gap-2"><HeartHandshake className="size-4 text-brand-600" /> همراهی در مسیر یادگیری</div>{course.is_in_person && <div className="flex items-center gap-2"><MapPin className="size-4 text-brand-600" /> برگزاری حضوری</div>}</div></div></aside>
                 </div>
             </main>
 

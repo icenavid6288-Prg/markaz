@@ -8,6 +8,7 @@ import {
     Award,
     BarChart3,
     BellRing,
+    Bot,
     BookOpen,
     Boxes,
     ClipboardList,
@@ -70,8 +71,9 @@ const nav: NavGroup[] = [
         { title: 'محصولات و فروشگاه', href: '/admin/content/products', icon: ShoppingBag, permission: 'view products' },
         { title: 'اپیزودهای پادکست', href: '/admin/content/podcasts', icon: BookOpen, permission: 'view podcasts' },
         { title: 'کدهای تخفیف', href: '/admin/content/coupons', icon: Package, permission: 'view coupons' },
-        { title: 'کتابخانه رسانه', href: '/admin/content/media', icon: Image, permission: 'view media' },
+        { title: 'کتابخانه رسانه', href: '/admin/media', icon: Image, permission: 'view media' },
         { title: 'مقالات بلاگ', href: '/admin/content/blog', icon: FileText, permission: 'view blog' },
+        { title: 'وبینارها و سمینارها', href: '/admin/content/events', icon: PanelTop, permission: 'view events' },
         { title: 'دسته‌بندی‌ها', href: '/admin/content/categories', icon: FolderTree, permission: 'view categories' },
         { title: 'نظرات و تجربه‌ها', href: '/admin/content/testimonials', icon: MessageSquareQuote, permission: 'view testimonials' },
         { title: 'مدرس‌ها و تیم', href: '/admin/content/team', icon: UsersRound, permission: 'view team' },
@@ -85,6 +87,13 @@ const nav: NavGroup[] = [
     ]},
     { section: 'رشد و اتومارکتینگ', items: [
         { title: 'اتومارکتینگ', href: '/admin/marketing', icon: Mail, permission: 'view marketing' },
+        { title: 'اینستاگرام و Inbox', href: '/admin/instagram', icon: MessageSquare, permission: 'view instagram' },
+        { title: 'اتوماسیون اینستاگرام', href: '/admin/instagram/automations', icon: BellRing, permission: 'update instagram' },
+        { title: 'قالب‌های پاسخ اینستاگرام', href: '/admin/instagram/templates', icon: FileText, permission: 'view instagram' },
+        { title: 'رسانه و انتشار اینستاگرام', href: '/admin/instagram/media', icon: Image, permission: 'create instagram' },
+        { title: 'تحلیل اینستاگرام', href: '/admin/instagram/analytics', icon: BarChart3, permission: 'view instagram' },
+        { title: 'لاگ Webhook اینستاگرام', href: '/admin/instagram/webhooks', icon: ShieldCheck, permission: 'view instagram' },
+        { title: 'ربات ایتا', href: '/admin/eitaa', icon: Bot, permission: 'view eitaa' },
         { title: 'ارسال پیامک انبوه', href: '/admin/marketing/bulk-sms', icon: Mail, permission: 'create marketing' },
         { title: 'گزارش ارسال پیامک', href: '/admin/marketing/bulk-sms/reports', icon: FileText, permission: 'view marketing' },
     ]},
@@ -106,6 +115,7 @@ const nav: NavGroup[] = [
         { title: 'پنل پیامک', href: '/admin/settings/sms', icon: MessageSquare, permission: 'view settings' },
         { title: 'درگاه پرداخت', href: '/admin/settings/payments', icon: CreditCard, permission: 'view settings' },
         { title: 'اتصالات و پیگیری خودکار', href: '/admin/settings/automations', icon: BellRing, permission: 'view settings' },
+        { title: 'اتصال اینستاگرام', href: '/admin/settings/instagram', icon: MessageSquare, permission: 'view settings' },
     ]},
 ];
 
@@ -114,6 +124,7 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
     const currentUrl = usePage().url;
     const [open, setOpen] = useState(false);
     const permissions = auth.user?.permissions ?? [];
+    const pageTitle = title ?? 'پنل مدیریت';
     const isSuper = auth.user?.roles?.includes('super-admin') ?? false;
 
     const visibleNav = useMemo(() => nav.map((group) => ({
@@ -183,17 +194,17 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
             )}
 
             <div className="flex min-w-0 flex-1 flex-col lg:mr-72">
-                <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-navy/5 bg-white/80 px-4 backdrop-blur md:px-6">
+                <header className="sticky top-0 z-30 flex min-h-16 flex-wrap items-center justify-between gap-3 border-b border-navy/5 bg-white/80 px-4 py-2 backdrop-blur md:px-6">
                     <div className="flex items-center gap-3">
                         <button type="button" className="rounded-xl p-2 text-navy lg:hidden" onClick={() => setOpen(true)} aria-label="باز کردن منو"><MenuIcon className="size-5" /></button>
-                        <div><div className="text-[10px] font-black text-brand-600">مدیریت یکپارچه اکوسیستم</div><h1 className="text-base font-black text-navy">{title ?? 'پنل مدیریت'}</h1></div>
+                        <div className="min-w-0"><div className="text-[10px] font-black text-brand-600">مدیریت یکپارچه اکوسیستم</div><h1 className="truncate text-base font-black text-navy">{pageTitle}</h1></div>
                     </div>
                     <div className="flex items-center gap-3">
                         <ThemeToggle compact />
                         <Link href="/" className="hidden text-xs font-bold text-navy/50 transition-colors hover:text-brand-700 sm:block">مشاهده سایت</Link>
-                        <div className="flex items-center gap-2.5 rounded-xl bg-soft-gray px-3 py-2">
+                        <div className="flex min-w-0 items-center gap-2.5 rounded-xl bg-soft-gray px-2.5 py-1.5 sm:px-3 sm:py-2">
                             <span className="flex size-8 items-center justify-center rounded-full bg-gradient-to-br from-brand-500 to-deep-green text-xs font-black text-white">{auth.user?.name?.slice(0, 1) ?? '؟'}</span>
-                            <div className="hidden leading-tight md:block"><div className="text-xs font-black text-navy">{auth.user?.name}</div><div className="text-[10px] text-navy/45">{auth.user?.roles?.join('، ')}</div></div>
+                            <div className="hidden max-w-36 truncate leading-tight md:block"><div className="truncate text-xs font-black text-navy">{auth.user?.name}</div><div className="truncate text-[10px] text-navy/45">{auth.user?.roles?.join('، ')}</div></div>
                         </div>
                     </div>
                 </header>

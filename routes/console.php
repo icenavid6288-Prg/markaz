@@ -1,6 +1,8 @@
 <?php
 
+use App\Models\CoachAvailability;
 use App\Models\MarketingCampaign;
+use App\Models\CoachingSession;
 use App\Models\Order;
 use App\Models\Product;
 use App\Models\Survey;
@@ -51,6 +53,21 @@ Artisan::command('commerce:release-expired-reservations', function () {
                     $product = Product::query()->lockForUpdate()->find($item->purchasable_id);
                     if ($product) {
                         $product->decrement('reserved_stock', min((int) $item->quantity, (int) $product->reserved_stock));
+                    }
+                }
+                foreach ($locked->items->where('purchasable_type', CoachingSession::class) as $item) {
+                    $session = CoachingSession::query()->find($item->purchasable_id);
+                    if ($session && $session->status !== 'cancelled') {
+                        $session->update(['status' => 'cancelled', 'cancelled_at' => now(), 'cancel_reason' => 'reservation_expired']);
+                        CoachAvailability::query()
+                            ->where('coach_id', $session->coach_id)
+                            ->whereDate('available_date', $session->scheduled_at?->toDateString())
+                            ->where(function ($query) use ($session): void {
+                                $time = $session->scheduled_at?->format('H:i:s');
+                                $short = $session->scheduled_at?->format('H:i');
+                                $query->where('start_time', $time)->orWhere('start_time', $short);
+                            })
+                            ->update(['is_booked' => false]);
                     }
                 }
                 $locked->update(['status' => 'cancelled', 'reservation_expires_at' => null]);
@@ -135,6 +152,16 @@ app(Schedule::class)
 
 app(Schedule::class)
     ->command('marketing:dispatch-scheduled')
+    ->everyMinute()
+    ->withoutOverlapping();
+
+app(Schedule::class)
+    ->command('instagram:publish-scheduled')
+    ->everyFiveMinutes()
+    ->withoutOverlapping();
+
+app(Schedule::class)
+    ->command('eitaa:cron')
     ->everyMinute()
     ->withoutOverlapping();
 

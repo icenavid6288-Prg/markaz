@@ -18,6 +18,7 @@ class RoleAndPermissionSeeder extends Seeder
             'orders', 'payments', 'coupons', 'blog', 'tags', 'media', 'comments', 'reviews',
             'testimonials', 'faqs', 'tickets', 'leads', 'pages', 'menus', 'settings',
             'notifications', 'reports', 'coaching', 'certificates', 'marketing', 'surveys', 'team',
+            'events', 'instagram', 'eitaa',
         ];
 
         $permissions = [];
@@ -29,6 +30,7 @@ class RoleAndPermissionSeeder extends Seeder
         }
         $permissions[] = 'manage all';
         $permissions[] = 'run marketing';
+        $permissions[] = 'reply instagram';
 
         foreach ($permissions as $permission) {
             Permission::findOrCreate($permission);

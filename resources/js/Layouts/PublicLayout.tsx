@@ -1,4 +1,4 @@
-import { Link, usePage } from '@inertiajs/react';
+import { Link, router, usePage } from '@inertiajs/react';
 import {
     ArrowLeft,
     ArrowUp,
@@ -18,13 +18,15 @@ import {
     ShoppingBag,
     ShieldCheck,
     Sparkles,
+    Radio,
+    Search as SearchIcon,
     Users,
     UsersRound,
     UserRound,
     X,
     type LucideIcon,
 } from 'lucide-react';
-import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react';
+import { lazy, Suspense, useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import BrandLogo from '@/Components/BrandLogo';
 import CelebrateFlash from '@/Components/CelebrateFlash';
 import FlashToast from '@/Components/FlashToast';
@@ -53,10 +55,12 @@ function menuIconFor(url: string): LucideIcon {
 }
 
 export default function PublicLayout({ children }: { children: ReactNode }) {
-    const { site, menus, auth, seo, authModal: sharedAuthModal } = usePage<PageProps>().props;
+    const { site, menus, auth, seo, liveWebinar, authModal: sharedAuthModal } = usePage<PageProps & { liveWebinar?: { slug: string; title: string; event_date?: string; url: string } | null }>().props;
     const [scrolled, setScrolled] = useState(false);
     const [atBottom, setAtBottom] = useState(false);
     const [mobileOpen, setMobileOpen] = useState(false);
+    const [searchOpen, setSearchOpen] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
     const [authModal, setAuthModal] = useState<'login' | 'register' | null>(null);
 
     useEffect(() => {
@@ -93,6 +97,14 @@ export default function PublicLayout({ children }: { children: ReactNode }) {
         }
     }, [sharedAuthModal]);
 
+    const submitGlobalSearch = (event: FormEvent) => {
+        event.preventDefault();
+        const query = searchQuery.trim();
+        if (!query) return;
+        setSearchOpen(false);
+        router.get('/search', { q: query }, { preserveState: false, replace: true });
+    };
+
     const scrollToTop = () => {
         window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
     };
@@ -111,24 +123,61 @@ export default function PublicLayout({ children }: { children: ReactNode }) {
                         </span>
                     </Link>
 
+                    <form className={`header-search ${searchOpen ? 'is-open' : ''}`} onSubmit={submitGlobalSearch} role="search">
+                        <button
+                            type="button"
+                            onClick={() => setSearchOpen((open) => !open)}
+                            className="header-search-toggle"
+                            aria-label={searchOpen ? 'بستن جستجو' : 'جستجو در سایت'}
+                            title={searchOpen ? 'بستن جستجو' : 'جستجو در سایت'}
+                            aria-expanded={searchOpen}
+                        >
+                            <SearchIcon className="size-4" aria-hidden />
+                        </button>
+                        <div className="header-search-panel">
+                            <SearchIcon className="size-4 shrink-0 text-brand-600" aria-hidden />
+                            <input
+                                type="search"
+                                value={searchQuery}
+                                onChange={(event) => setSearchQuery(event.target.value)}
+                                placeholder="جستجو در سایت..."
+                                aria-label="جستجو در سایت"
+                            />
+                            <button type="submit" className="header-search-submit" aria-label="انجام جستجو">
+                                <ArrowLeft className="size-4" aria-hidden />
+                            </button>
+                        </div>
+                    </form>
+
                     <nav className="reference-nav hidden items-center gap-1 lg:flex" aria-label="منوی اصلی">
                         {menus.header.map((item) => (
                             <Link
                                 key={item.url + item.title}
                                 href={item.url}
                                 prefetch="hover"
-                                className="rounded-xl px-3.5 py-2 text-sm font-bold text-white/80 transition-colors hover:bg-white/10 hover:text-white"
+                                className={`rounded-xl px-3.5 py-2 text-sm font-bold text-white/80 transition-colors hover:bg-white/10 hover:text-white ${item.url === '/' ? 'header-nav-home' : ''} ${['/about', '/team', '/contact'].includes(item.url) ? 'header-nav-secondary' : ''}`}
                             >
                                 {item.title}
                             </Link>
                         ))}
+                        <Link
+                            href="/events?type=webinar"
+                            prefetch="hover"
+                            className="header-nav-secondary inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-sm font-bold text-white/80 transition-colors hover:bg-white/10 hover:text-white"
+                        >
+                            <Radio className="size-3.5 text-red-300" aria-hidden />
+                            وبینارها
+                        </Link>
+                        <Link
+                            href="/events?type=seminar"
+                            prefetch="hover"
+                            className="header-nav-secondary rounded-xl px-3.5 py-2 text-sm font-bold text-white/80 transition-colors hover:bg-white/10 hover:text-white"
+                        >
+                            سمینارها
+                        </Link>
                     </nav>
 
                     <div className="reference-actions hidden items-center gap-3 lg:flex">
-                        <Link href="/contact" prefetch="hover" className="reference-quick">
-                            <MapPin className="size-3.5" /> دسترسی سریع
-                        </Link>
-                        <ThemeToggle compact />
                         {auth.user ? (
                             <Link
                                 href="/dashboard"
@@ -139,13 +188,6 @@ export default function PublicLayout({ children }: { children: ReactNode }) {
                             </Link>
                         ) : (
                             <>
-                                <button
-                                    type="button"
-                                    onClick={() => setAuthModal('login')}
-                                    className="reference-login px-2 py-2 text-sm font-bold text-white/75 transition-colors hover:text-white"
-                                >
-                                    ورود
-                                </button>
                                 <button
                                     type="button"
                                     onClick={() => setAuthModal('register')}
@@ -204,7 +246,7 @@ export default function PublicLayout({ children }: { children: ReactNode }) {
                         {menus.header.map((item, i) => {
                             const Icon = menuIconFor(item.url);
                             return (
-                                <div key={item.url + item.title} className="drawer-item" style={{ transitionDelay: `${90 + i * 60}ms` }}>
+                                <div key={item.url + item.title} className="drawer-item" style={{ transitionDelay: `${40 + i * 30}ms` }}>
                                     <Link
                                         href={item.url}
                                         prefetch="hover"
@@ -221,6 +263,20 @@ export default function PublicLayout({ children }: { children: ReactNode }) {
                                 </div>
                             );
                         })}
+                        <div className="drawer-item" style={{ transitionDelay: `${40 + menus.header.length * 30}ms` }}>
+                            <Link href="/events?type=webinar" prefetch="hover" onClick={() => setMobileOpen(false)} className="drawer-link">
+                                <span className="drawer-link-icon"><Radio className="size-4 text-red-300" aria-hidden /></span>
+                                <span>وبینارها</span>
+                                <span className="drawer-link-index">{formatNumber(menus.header.length + 1)}</span>
+                                <ChevronLeft className="drawer-link-arrow size-4" aria-hidden />
+                            </Link>
+                            <Link href="/events?type=seminar" prefetch="hover" onClick={() => setMobileOpen(false)} className="drawer-link">
+                                <span className="drawer-link-icon"><Radio className="size-4 text-brand-300" aria-hidden /></span>
+                                <span>سمینارها</span>
+                                <span className="drawer-link-index">{formatNumber(menus.header.length + 2)}</span>
+                                <ChevronLeft className="drawer-link-arrow size-4" aria-hidden />
+                            </Link>
+                        </div>
                     </nav>                        <div className="drawer-foot">
                         <div className="drawer-btns">
                             {auth.user ? (
@@ -289,6 +345,22 @@ export default function PublicLayout({ children }: { children: ReactNode }) {
                             <Link href="/courses" className="footer-secondary-action">مشاهده دوره‌ها</Link>
                         </div>
                     </div>
+
+                    {liveWebinar && (
+                        <a
+                            href={liveWebinar.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="footer-live-webinar"
+                        >
+                            <span className="footer-live-webinar-icon"><Radio className="size-4" aria-hidden /></span>
+                            <span className="footer-live-webinar-copy">
+                                <strong><span className="footer-live-dot" /> وبینار زنده</strong>
+                                <span>{liveWebinar.title}</span>
+                            </span>
+                            <span className="footer-live-webinar-action">ورود به لایو <ArrowLeft className="size-4" aria-hidden /></span>
+                        </a>
+                    )}
 
                     <div className="footer-main-grid">
                         <div className="footer-brand-column">

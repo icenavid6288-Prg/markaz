@@ -7,20 +7,20 @@ import { colors, radius, spacing, typography } from '../theme';
 
 export function LoginScreen({ onGoRegister }: { onGoRegister: () => void }) {
     const { login } = useAuth();
-    const [email, setEmail] = useState('');
+    const [identifier, setIdentifier] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState<string | null>(null);
     const [busy, setBusy] = useState(false);
 
     const submit = async () => {
         setError(null);
-        if (!email.trim() || !password) {
-            setError('ایمیل و رمز عبور را وارد کنید.');
+        if (!identifier.trim() || !password) {
+            setError('ایمیل یا شماره موبایل و رمز عبور را وارد کنید.');
             return;
         }
         setBusy(true);
         try {
-            await login(email.trim(), password);
+            await login(identifier.trim(), password);
         } catch (e) {
             setError(e instanceof ApiError ? e.message : 'خطا در ورود. دوباره تلاش کنید.');
         } finally {
@@ -43,13 +43,13 @@ export function LoginScreen({ onGoRegister }: { onGoRegister: () => void }) {
 
                     <View style={styles.form}>
                         <Field
-                            label="ایمیل"
-                            value={email}
-                            onChangeText={setEmail}
+                            label="ایمیل یا شماره موبایل"
+                            value={identifier}
+                            onChangeText={setIdentifier}
                             keyboardType="email-address"
                             autoCapitalize="none"
                             autoComplete="email"
-                            placeholder="you@example.com"
+                            placeholder="you@example.com یا 09120000000"
                             style={{ textAlign: 'left' }}
                         />
                         <Field

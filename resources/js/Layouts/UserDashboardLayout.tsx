@@ -205,7 +205,7 @@ export default function UserDashboardLayout({ children }: { children: ReactNode 
                     <div className="flex items-center gap-3"><button type="button" onClick={() => setOpen(true)} className="rounded-xl bg-white p-2 text-navy shadow-sm lg:hidden dark:bg-white/10 dark:text-white" aria-label="باز کردن منو"><Menu className="size-5" /></button><div><span className="block text-xs font-bold text-brand-700">داشبورد رشد شخصی</span><h1 className="text-base font-black text-navy dark:text-white">سلام، {user?.name?.split(' ')[0] ?? 'همراه مسیر'} 👋</h1></div></div>
                     <div className="flex items-center gap-2"><ThemeToggle compact /><Link href="/profile" className="hidden items-center gap-2 rounded-xl bg-white px-3 py-2 text-xs font-bold text-navy/55 shadow-sm transition-colors hover:text-brand-700 sm:flex dark:bg-white/10 dark:text-white/70"><UserRound className="size-3.5" /> پروفایل</Link><Link href="/courses" className="hidden rounded-xl bg-brand-500 px-4 py-2 text-xs font-bold text-white shadow-glow transition-colors hover:bg-brand-600 sm:block">کشف دوره جدید</Link></div>
                 </header>
-                <main className="p-4 md:p-8">
+                <main className="dashboard-content p-4 md:p-8">
                     <PanelHelpGuide role="student" />
                     {children}
                 </main>

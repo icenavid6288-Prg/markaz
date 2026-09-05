@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Banner;
 use App\Models\BlogPost;
+use App\Models\Event;
 use App\Models\CoachingSession;
 use App\Models\CourseModule;
 use App\Models\Coupon;
@@ -45,6 +46,31 @@ class ContentController extends Controller
      * @var array<string, array<string, mixed>>
      */
     private const RESOURCES = [
+        'events' => [
+            'model' => Event::class,
+            'label' => 'وبینارها و سمینارها',
+            'singular' => 'رویداد',
+            'search' => ['title', 'summary', 'description', 'speaker'],
+            'fields' => [
+                ['name' => 'title', 'label' => 'عنوان', 'type' => 'text', 'required' => true],
+                ['name' => 'slug', 'label' => 'اسلاگ', 'type' => 'text'],
+                ['name' => 'type', 'label' => 'نوع رویداد', 'type' => 'select', 'options' => ['webinar' => 'وبینار', 'seminar' => 'سمینار']],
+                ['name' => 'summary', 'label' => 'خلاصه توضیحات', 'type' => 'textarea', 'wide' => true],
+                ['name' => 'description', 'label' => 'توضیحات کامل', 'type' => 'textarea', 'wide' => true],
+                ['name' => 'poster', 'label' => 'پوستر', 'type' => 'image'],
+                ['name' => 'live_url', 'label' => 'لینک ورود به وبینار زنده', 'type' => 'text', 'help' => 'لینک جلسه آنلاین مثل Zoom، Google Meet یا Skyroom را وارد کنید. این لینک روی صفحه رویداد با دکمه «ورود به وبینار» نمایش داده می‌شود.'],
+                ['name' => 'video_url', 'label' => 'لینک ویدیوی ضبط‌شده (آپارات/یوتیوب/ویمئو/MP4)', 'type' => 'text'],
+                ['name' => 'price', 'label' => 'قیمت (تومان؛ صفر یعنی رایگان)', 'type' => 'number'],
+                ['name' => 'discount_price', 'label' => 'قیمت با تخفیف', 'type' => 'number'],
+                ['name' => 'video_file', 'label' => 'فایل ویدیو', 'type' => 'file', 'accept' => 'video/mp4,video/webm', 'mimes' => ['mp4', 'webm'], 'help' => 'برای ویدیوهای بزرگ، استفاده از لینک خارجی پیشنهاد می‌شود.'],
+                ['name' => 'event_date', 'label' => 'تاریخ و زمان برگزاری', 'type' => 'datetime'],
+                ['name' => 'duration_minutes', 'label' => 'مدت (دقیقه)', 'type' => 'number'],
+                ['name' => 'location', 'label' => 'محل / لینک برگزاری', 'type' => 'text'],
+                ['name' => 'speaker', 'label' => 'مدرس یا سخنران', 'type' => 'text'],
+                ['name' => 'status', 'label' => 'وضعیت', 'type' => 'select', 'options' => ['draft' => 'پیش‌نویس', 'published' => 'منتشرشده', 'archived' => 'بایگانی']],
+                ['name' => 'is_featured', 'label' => 'رویداد ویژه', 'type' => 'boolean'],
+            ],
+        ],
         'services' => [
             'model' => Service::class,
             'label' => 'خدمات',
@@ -312,10 +338,10 @@ class ContentController extends Controller
                 ['name' => 'code', 'label' => 'کد', 'type' => 'text', 'required' => true],
                 ['name' => 'type', 'label' => 'نوع تخفیف', 'type' => 'select', 'options' => ['percent' => 'درصدی', 'fixed' => 'مبلغ ثابت']],
                 ['name' => 'value', 'label' => 'مقدار تخفیف', 'type' => 'number'],
-                ['name' => 'max_uses', 'label' => 'حداکثر استفاده', 'type' => 'number'],
+                ['name' => 'max_uses', 'label' => 'حداکثر استفاده', 'type' => 'number', 'help' => 'خالی یا صفر یعنی بدون محدودیت استفاده.'],
                 ['name' => 'used_count', 'label' => 'تعداد مصرف', 'type' => 'number'],
-                ['name' => 'min_order', 'label' => 'حداقل سفارش', 'type' => 'number'],
-                ['name' => 'expires_at', 'label' => 'انقضا', 'type' => 'datetime'],
+                ['name' => 'min_order', 'label' => 'حداقل سفارش (تومان)', 'type' => 'number', 'help' => 'صفر یعنی بدون حداقل مبلغ سفارش.'],
+                ['name' => 'expires_at', 'label' => 'انقضا (خالی = بدون انقضا)', 'type' => 'datetime'],
                 ['name' => 'is_active', 'label' => 'فعال', 'type' => 'boolean'],
             ],
         ],
@@ -603,7 +629,7 @@ class ContentController extends Controller
                 $rule[] = 'max:8192';
             }
             if ($type === 'file' && $request->hasFile($name)) {
-                $rule[] = 'mimes:'.implode(',', $field['mimes'] ?? ['pdf']);
+                $rule[] = 'mimes:'.implode(',', $field['mimes'] ?? ($name === 'video_file' ? ['mp4', 'webm'] : ['pdf']));
                 $rule[] = 'max:51200';
             }
             if ($type === 'select' && isset($field['options'])) {
@@ -831,6 +857,7 @@ class ContentController extends Controller
             $column = match ($name) {
                 'preview_file' => 'preview_file_path',
                 'download_file' => 'file_path',
+                'video_file' => 'video_path',
                 default => null,
             };
             if (! $column) {
@@ -844,7 +871,8 @@ class ContentController extends Controller
             }
 
             $extension = strtolower($file->extension() ?: 'pdf');
-            $path = $disk->putFileAs('products/'.$item->getKey(), $file, $name.'.'.$extension);
+            $directory = $resource === 'events' ? 'events/'.$item->getKey() : 'products/'.$item->getKey();
+            $path = $disk->putFileAs($directory, $file, $name.'.'.$extension);
             $item->update([$column => $path]);
         }
     }
@@ -860,6 +888,7 @@ class ContentController extends Controller
             $column = match ($field['name']) {
                 'preview_file' => 'preview_file_path',
                 'download_file' => 'file_path',
+                'video_file' => 'video_path',
                 default => null,
             };
             $oldPath = $column ? SafeStoragePath::normalize((string) $item->getAttribute($column)) : null;

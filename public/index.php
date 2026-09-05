@@ -14,6 +14,20 @@ register_shutdown_function(static function (): void {
     @file_put_contents(__DIR__.'/../storage/logs/php-fatal.log', $line, FILE_APPEND);
 });
 
+// Self-heal: a stale config cache forces Laravel to connect with the OLD
+// credentials baked in at cache time, ignoring the current .env. If .env
+// is newer than the cached config, purge the cache automatically.
+$rootDir = dirname(__DIR__);
+$cachedConfig = $rootDir.'/bootstrap/cache/config.php';
+$envFile = $rootDir.'/.env';
+if (is_file($cachedConfig) && is_file($envFile)) {
+    $cachedMtime = @filemtime($cachedConfig);
+    $envMtime = @filemtime($envFile);
+    if ($envMtime !== false && $cachedMtime !== false && $envMtime > $cachedMtime) {
+        @unlink($cachedConfig);
+    }
+}
+
 // Determine if the application is in maintenance mode...
 if (file_exists($maintenance = __DIR__.'/../storage/framework/maintenance.php')) {
     require $maintenance;

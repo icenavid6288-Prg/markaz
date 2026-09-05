@@ -29,12 +29,13 @@ interface CartProps {
 
 export default function CartIndex() {
     const { items, totals, auth, coupon = null } = usePage<PageProps & CartProps>().props;
-    const [couponCode, setCouponCode] = useState('');
+    const [couponCode, setCouponCode] = useState(coupon?.code ?? '');
     const [quantities, setQuantities] = useState<Record<number, number>>(() => Object.fromEntries(items.map((item) => [item.id, item.quantity])));
 
     useEffect(() => {
         setQuantities(Object.fromEntries(items.map((item) => [item.id, item.quantity])));
-    }, [items]);
+        if (coupon) setCouponCode(coupon.code);
+    }, [items, coupon]);
 
     const updateQuantity = (item: CartItem, quantity: number) => {
         const next = Math.max(1, Math.min(item.stock, quantity));
@@ -106,7 +107,7 @@ export default function CartIndex() {
                                         className="mt-6 flex gap-2"
                                         onSubmit={(event) => {
                                             event.preventDefault();
-                                            router.post('/cart/coupon', { code: couponCode }, { preserveScroll: true });
+                                            router.post('/cart/coupon', { code: couponCode.replace(/\s+/g, '').toUpperCase() }, { preserveScroll: true, preserveState: false });
                                         }}
                                     >
                                         <input value={couponCode} onChange={(event) => setCouponCode(event.target.value.toUpperCase())} placeholder="کد تخفیف" className="min-w-0 flex-1 rounded-xl border border-navy/10 bg-white px-3 py-2 text-xs font-bold text-navy outline-none focus:border-brand-500" />
