@@ -55,8 +55,15 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+      # No SDK setup step on purpose: the ubuntu-latest image already ships the
+      # Android SDK (ANDROID_HOME) with licenses accepted, and
+      # android-actions/setup-android@v3 fails on current images because
+      # `sdkmanager tools` no longer exists.
+      - name: Check the Android toolchain
+        run: |
+          echo "ANDROID_HOME=${ANDROID_HOME:-unset}"
+          java -version
+          ls "${ANDROID_HOME:-/usr/local/lib/android/sdk}/platforms" || true
 
       - name: Install dependencies
         working-directory: mobile
