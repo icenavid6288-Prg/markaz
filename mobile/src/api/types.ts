@@ -37,6 +37,11 @@ export interface CoursePayload {
     certificate_enabled?: boolean;
     instructor?: InstructorPayload | null;
     category?: string | null;
+    is_in_person?: boolean;
+    location?: string | null;
+    schedule?: string | null;
+    max_students?: number | null;
+    in_person_description?: string | null;
     curriculum?: ModulePayload[];
     enrollment?: {
         id: number;
@@ -114,4 +119,23 @@ export interface DashboardData {
 export interface AuthData {
     user: UserPayload;
     token: string;
+}
+
+export interface LearningLesson {
+    id: number;
+    title: string;
+    type: string;
+    is_free: boolean;
+    locked?: boolean;
+    content?: string | null;
+    video_url?: string | null;
+    player_url?: string | null;
+}
+
+export interface LearningData {
+    course: Pick<CoursePayload, 'id' | 'title' | 'slug'>;
+    enrolled: boolean;
+    preview: boolean;
+    current_lesson: LearningLesson;
+    lessons: LearningLesson[];
 }

@@ -18,13 +18,14 @@ import { useAuth } from '../context/AuthContext';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'CourseDetail'>;
 
-export function CourseDetailScreen({ route }: Props) {
+export function CourseDetailScreen({ route, navigation }: Props) {
     const { slug } = route.params;
     const { token } = useAuth();
     const [course, setCourse] = useState<CoursePayload | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [openModules, setOpenModules] = useState<Record<number, boolean>>({});
     const [imageUri, setImageUri] = useState<string | null>(null);
+    const [busy, setBusy] = useState(false);
 
     const load = useCallback(async () => {
         try {
@@ -66,30 +67,41 @@ export function CourseDetailScreen({ route }: Props) {
         );
     }
 
+    const enrolled = Boolean(course?.enrollment);
+
     const goEnroll = async () => {
+        if (!course || busy) return;
         if (!token) {
             Alert.alert('ورود لازم است', 'برای ثبت‌نام ابتدا وارد حساب خود شوید.');
             return;
         }
         if (enrolled) {
-            openSitePage(`/dashboard/courses/${course.slug}/learn`).catch((e) =>
-                Alert.alert('خطا', e instanceof ApiError ? e.message : 'خطا در باز کردن صفحه')
-            );
+            navigation.navigate('Learning', { slug: course.slug });
             return;
         }
+        setBusy(true);
         try {
-            const result = await api<{ enrolled?: boolean; checkout_url?: string | null; player_url?: string | null }>(
-                `/api/v1/courses/${course.slug}/checkout`,
-                { method: 'POST' }
-            );
-            const target = result.checkout_url || result.player_url || `/courses/${course.slug}`;
-            await openSitePage(target.replace(/^https?:\/\/[^/]+/, ''));
+            const result = await api<{
+                enrolled?: boolean;
+                checkout_url?: string | null;
+                player_url?: string | null;
+            }>(`/api/v1/courses/${course.slug}/checkout`, { method: 'POST' });
+
+            if (result.enrolled) {
+                // Free course (or an already-paid order): the enrollment is live,
+                // so open the native lesson list instead of the browser.
+                await load();
+                navigation.navigate('Learning', { slug: course.slug });
+                return;
+            }
+
+            await openSitePage(result.checkout_url || result.player_url || `/courses/${course.slug}`);
         } catch (e) {
             Alert.alert('خطا', e instanceof ApiError ? e.message : 'ثبت‌نام انجام نشد.');
+        } finally {
+            setBusy(false);
         }
     };
-
-    const enrolled = Boolean(course.enrollment);
 
     return (
         <Screen>
@@ -131,8 +143,9 @@ export function CourseDetailScreen({ route }: Props) {
                     </View>
 
                     <PrimaryButton
-                        title={enrolled ? 'ادامه یادگیری در سایت' : 'ثبتنام در دوره'}
+                        title={enrolled ? 'ادامه یادگیری' : 'ثبتنام در دوره'}
                         onPress={goEnroll}
+                        loading={busy}
                     />
 
                     {course.description ? (
@@ -156,7 +169,7 @@ export function CourseDetailScreen({ route }: Props) {
                                         {open ? (
                                             <View style={styles.lessonList}>
                                                 {module.lessons.map((lesson) => (
-                                                    <View key={lesson.id} style={styles.lessonRow}>
+                                                    <Pressable key={lesson.id} style={styles.lessonRow} onPress={() => lesson.is_free || enrolled ? navigation.navigate('Learning', { slug: course.slug, lessonId: lesson.id }) : Alert.alert('این درس قفل است', 'برای مشاهده این درس در دوره ثبت‌نام کنید.')}>
                                                         <Text style={styles.lessonIcon}>
                                                             {lesson.type === 'video' ? '🎬' : lesson.type === 'quiz' ? '📝' : '📄'}
                                                         </Text>
@@ -167,7 +180,7 @@ export function CourseDetailScreen({ route }: Props) {
                                                         {lesson.duration_minutes ? (
                                                             <Text style={styles.lessonDuration}>{faNum(lesson.duration_minutes)} دقیقه</Text>
                                                         ) : null}
-                                                    </View>
+                                                    </Pressable>
                                                 ))}
                                             </View>
                                         ) : null}

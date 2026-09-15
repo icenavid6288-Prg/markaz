@@ -101,7 +101,13 @@ export function DashboardScreen() {
                 renderItem={({ item }) => (
                     <Pressable
                         style={({ pressed }) => [styles.courseRow, pressed && { opacity: 0.85 }]}
-                        onPress={() => navigation.navigate('CourseDetail', { slug: item.course?.slug ?? '' })}
+                        disabled={!item.course?.slug}
+                        onPress={() => {
+                            const slug = item.course?.slug;
+                            if (!slug) return;
+                            // Already enrolled, so go straight to the lessons.
+                            navigation.navigate('Learning', { slug });
+                        }}
                     >
                         <View style={styles.courseRowHeader}>
                             <Text style={styles.courseRowTitle} numberOfLines={1}>

@@ -170,9 +170,11 @@ export function ProductCard({ product, onPress }: { product: ProductPayload; onP
 
 function CourseThumbnail({ thumbnail, title }: { thumbnail?: string | null; title: string }) {
     const [uri, setUri] = useState<string | null>(null);
+    const [failed, setFailed] = useState(false);
 
     useEffect(() => {
         let mounted = true;
+        setFailed(false);
         resolveAssetUrl(thumbnail).then((resolved) => {
             if (mounted) setUri(resolved);
         });
@@ -181,14 +183,23 @@ function CourseThumbnail({ thumbnail, title }: { thumbnail?: string | null; titl
         };
     }, [thumbnail]);
 
+    // Only cover the image with the title placeholder when there is nothing to show.
     return (
         <View style={styles.thumbWrap}>
-            {uri ? <Image source={{ uri }} style={styles.thumb} resizeMode="cover" /> : null}
-            <View style={styles.thumbFallback}>
-                <Text style={styles.thumbFallbackText} numberOfLines={2}>
-                    {title}
-                </Text>
-            </View>
+            {uri && !failed ? (
+                <Image
+                    source={{ uri }}
+                    style={styles.thumb}
+                    resizeMode="cover"
+                    onError={() => setFailed(true)}
+                />
+            ) : (
+                <View style={styles.thumbFallback}>
+                    <Text style={styles.thumbFallbackText} numberOfLines={2}>
+                        {title}
+                    </Text>
+                </View>
+            )}
         </View>
     );
 }

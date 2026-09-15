@@ -1,0 +1,113 @@
+name: Build mobile APK
+
+# Builds an installable Android APK in the cloud, because a local Gradle build
+# needs the Android SDK + JDK and several GB of RAM/disk.
+#
+# Run it from the Actions tab ("Run workflow") or by pushing to a branch that
+# touches mobile/. The APK lands in the run's "Artifacts" section.
+#
+# Server address baked into the app: pass `api_url` when dispatching, or set a
+# repository variable named EXPO_PUBLIC_API_URL (Settings -> Secrets and
+# variables -> Actions -> Variables). If neither is set, the app keeps its
+# built-in default and users can change the server from the in-app
+# "server settings" screen.
+
+on:
+  workflow_dispatch:
+    inputs:
+      api_url:
+        description: 'Server URL baked into the app, e.g. https://example.com (leave empty to use the repository variable / built-in default)'
+        required: false
+        default: ''
+  push:
+    branches: [main, 'ci/**']
+    paths:
+      - 'mobile/**'
+      - '.github/workflows/mobile-apk.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mobile-apk-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  apk:
+    name: Build release APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install dependencies
+        working-directory: mobile
+        run: npm ci
+
+      - name: Generate the native Android project
+        working-directory: mobile
+        env:
+          EXPO_PUBLIC_API_URL: ${{ inputs.api_url || vars.EXPO_PUBLIC_API_URL }}
+        run: |
+          if [ -z "$EXPO_PUBLIC_API_URL" ]; then
+            echo "::warning::No API URL given - the APK will use the app's built-in default (localhost). Users can still change the server from the in-app settings screen."
+          else
+            echo "Baking server URL into the APK: $EXPO_PUBLIC_API_URL"
+          fi
+          npx expo prebuild --platform android --no-install
+
+      - name: Build APK
+        working-directory: mobile/android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease --no-daemon --stacktrace
+          # The generated project signs release builds with the debug keystore,
+          # so the APK is installable via sideloading without extra secrets.
+          ls -l app/build/outputs/apk/release/
+
+      - name: Rename artifact
+        id: package
+        working-directory: mobile/android
+        run: |
+          apk=$(find app/build/outputs/apk/release -name '*.apk' | head -n 1)
+          version=$(node -p "require('../../package.json').version")
+          name="markaz-mobile-${version}-${{ github.run_number }}.apk"
+          cp "$apk" "$name"
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+          echo "size=$(du -h "$name" | cut -f1)" >> "$GITHUB_OUTPUT"
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: markaz-mobile-apk-${{ github.run_number }}
+          path: mobile/android/${{ steps.package.outputs.name }}
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Summary
+        run: |
+          {
+            echo "### Android APK ready"
+            echo ""
+            echo "- File: \`${{ steps.package.outputs.name }}\` (${{ steps.package.outputs.size }})"
+            echo "- Download it from the **Artifacts** section of this run."
+            echo "- Signed with the debug keystore (fine for sideloading, not for Play Store)."
+          } >> "$GITHUB_STEP_SUMMARY"

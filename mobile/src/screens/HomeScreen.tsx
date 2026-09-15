@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { FlatList, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { EmptyState, Loading, Screen, SectionHeader } from '../components';
+import { EmptyState, Loading, PrimaryButton, Screen, SectionHeader } from '../components';
 import { CourseCard, ProductCard } from '../components';
 import { api, ApiError } from '../api/client';
 import type { HomeData } from '../api/types';
@@ -37,6 +37,9 @@ export function HomeScreen() {
             <Screen>
                 <View style={styles.errorBox}>
                     <EmptyState icon="📡" title="اتصال برقرار نشد" subtitle={error} />
+                    <View style={styles.retryWrap}>
+                        <PrimaryButton title="تلاش دوباره" onPress={() => load()} />
+                    </View>
                 </View>
             </Screen>
         );
@@ -116,6 +119,7 @@ export function HomeScreen() {
 const styles = StyleSheet.create({
     container: { paddingBottom: spacing.xxl },
     errorBox: { flex: 1, justifyContent: 'center' },
+    retryWrap: { paddingHorizontal: spacing.xl },
     hero: {
         backgroundColor: colors.primary,
         marginHorizontal: spacing.lg,

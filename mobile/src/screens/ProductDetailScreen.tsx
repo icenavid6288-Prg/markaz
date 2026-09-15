@@ -14,12 +14,20 @@ export function ProductDetailScreen({ route }: Props) {
     const [product, setProduct] = useState<ProductPayload | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [imageUri, setImageUri] = useState<string | null>(null);
+    const [imageFailed, setImageFailed] = useState(false);
+
+    const load = useCallback(async () => {
+        setError(null);
+        try {
+            setProduct(await api<ProductPayload>(`/api/v1/products/${slug}`));
+        } catch (e) {
+            setError(e instanceof ApiError ? e.message : 'خطا در دریافت محصول');
+        }
+    }, [slug]);
 
     useEffect(() => {
-        api<ProductPayload>(`/api/v1/products/${slug}`)
-            .then(setProduct)
-            .catch((e) => setError(e instanceof ApiError ? e.message : 'خطا در دریافت محصول'));
-    }, [slug]);
+        load();
+    }, [load]);
 
     useEffect(() => {
         let mounted = true;
@@ -37,6 +45,7 @@ export function ProductDetailScreen({ route }: Props) {
                 <View style={styles.errorBox}>
                     <Text style={styles.errorTitle}>محصول یافت نشد</Text>
                     <Text style={styles.errorText}>{error}</Text>
+                    <PrimaryButton title="تلاش دوباره" onPress={load} />
                 </View>
             </Screen>
         ) : (
@@ -47,8 +56,13 @@ export function ProductDetailScreen({ route }: Props) {
     return (
         <Screen>
             <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
-                {imageUri ? (
-                    <Image source={{ uri: imageUri }} style={styles.image} resizeMode="cover" />
+                {imageUri && !imageFailed ? (
+                    <Image
+                        source={{ uri: imageUri }}
+                        style={styles.image}
+                        resizeMode="cover"
+                        onError={() => setImageFailed(true)}
+                    />
                 ) : (
                     <View style={[styles.image, styles.imageFallback]}>
                         <Text style={styles.imageFallbackText}>{product.title}</Text>

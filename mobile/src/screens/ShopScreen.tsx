@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { FlatList, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { FlatList, RefreshControl, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { EmptyState, Loading, ProductCard, Screen } from '../components';
 import { api, ApiError } from '../api/client';
@@ -9,6 +9,9 @@ import type { TabStackNavigation } from '../navigation/types';
 
 export function ShopScreen() {
     const navigation = useNavigation<TabStackNavigation>();
+    const { width } = useWindowDimensions();
+    // Fixed card width keeps a lone last item from stretching across the row.
+    const cardWidth = (width - spacing.lg * 2 - spacing.md) / 2;
     const [products, setProducts] = useState<ProductPayload[]>([]);
     const [page, setPage] = useState(1);
     const [lastPage, setLastPage] = useState(1);
@@ -80,7 +83,7 @@ export function ShopScreen() {
                         ) : null
                     }
                     renderItem={({ item }) => (
-                        <View style={styles.itemWrap}>
+                        <View style={[styles.itemWrap, { width: cardWidth }]}>
                             <ProductCard product={item} onPress={() => navigation.navigate('ProductDetail', { slug: item.slug })} />
                         </View>
                     )}
@@ -96,6 +99,6 @@ const styles = StyleSheet.create({
     subtitle: { ...typography.small, color: colors.muted },
     list: { paddingHorizontal: spacing.lg, paddingBottom: spacing.xxl },
     row: { gap: spacing.md },
-    itemWrap: { flex: 1, marginBottom: spacing.md },
+    itemWrap: { marginBottom: spacing.md },
     endText: { textAlign: 'center', color: colors.muted, fontSize: 12, paddingVertical: spacing.lg },
 });

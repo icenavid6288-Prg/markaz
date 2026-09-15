@@ -9,6 +9,7 @@ export function RegisterScreen({ onGoLogin }: { onGoLogin: () => void }) {
     const { register } = useAuth();
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
+    const [phone, setPhone] = useState('');
     const [password, setPassword] = useState('');
     const [confirm, setConfirm] = useState('');
     const [error, setError] = useState<string | null>(null);
@@ -16,8 +17,8 @@ export function RegisterScreen({ onGoLogin }: { onGoLogin: () => void }) {
 
     const submit = async () => {
         setError(null);
-        if (!name.trim() || !email.trim() || !password) {
-            setError('همه فیلدها را پر کنید.');
+        if (!name.trim() || !phone.trim() || !password) {
+            setError('نام، شماره موبایل و رمز عبور را وارد کنید.');
             return;
         }
         if (password !== confirm) {
@@ -26,7 +27,7 @@ export function RegisterScreen({ onGoLogin }: { onGoLogin: () => void }) {
         }
         setBusy(true);
         try {
-            await register(name.trim(), email.trim(), password);
+            await register(name.trim(), email.trim(), password, phone.trim());
         } catch (e) {
             setError(e instanceof ApiError ? e.message : 'خطا در ثبتنام. دوباره تلاش کنید.');
         } finally {
@@ -56,6 +57,7 @@ export function RegisterScreen({ onGoLogin }: { onGoLogin: () => void }) {
                             placeholder="you@example.com"
                             style={{ textAlign: 'left' }}
                         />
+                        <Field label="شماره موبایل" value={phone} onChangeText={setPhone} keyboardType="phone-pad" placeholder="09120000000" />
                         <Field
                             label="رمز عبور"
                             value={password}

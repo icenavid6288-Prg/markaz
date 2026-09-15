@@ -5,22 +5,28 @@ import { useAuth } from '../context/AuthContext';
 import { ApiError } from '../api/client';
 import { colors, radius, spacing, typography } from '../theme';
 
-export function LoginScreen({ onGoRegister }: { onGoRegister: () => void }) {
+export function LoginScreen({
+    onGoRegister,
+    onOpenSettings,
+}: {
+    onGoRegister: () => void;
+    onOpenSettings: () => void;
+}) {
     const { login } = useAuth();
-    const [email, setEmail] = useState('');
+    const [identifier, setIdentifier] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState<string | null>(null);
     const [busy, setBusy] = useState(false);
 
     const submit = async () => {
         setError(null);
-        if (!email.trim() || !password) {
-            setError('ایمیل و رمز عبور را وارد کنید.');
+        if (!identifier.trim() || !password) {
+            setError('ایمیل یا شماره موبایل و رمز عبور را وارد کنید.');
             return;
         }
         setBusy(true);
         try {
-            await login(email.trim(), password);
+            await login(identifier.trim(), password);
         } catch (e) {
             setError(e instanceof ApiError ? e.message : 'خطا در ورود. دوباره تلاش کنید.');
         } finally {
@@ -43,13 +49,13 @@ export function LoginScreen({ onGoRegister }: { onGoRegister: () => void }) {
 
                     <View style={styles.form}>
                         <Field
-                            label="ایمیل"
-                            value={email}
-                            onChangeText={setEmail}
+                            label="ایمیل یا شماره موبایل"
+                            value={identifier}
+                            onChangeText={setIdentifier}
                             keyboardType="email-address"
                             autoCapitalize="none"
                             autoComplete="email"
-                            placeholder="you@example.com"
+                            placeholder="you@example.com یا 09120000000"
                             style={{ textAlign: 'left' }}
                         />
                         <Field
@@ -67,6 +73,11 @@ export function LoginScreen({ onGoRegister }: { onGoRegister: () => void }) {
                         <Pressable onPress={onGoRegister} style={styles.switchRow}>
                             <Text style={styles.switchText}>حساب ندارید؟ </Text>
                             <Text style={styles.switchLink}>ثبتنام کنید</Text>
+                        </Pressable>
+
+                        {/* Without this a fresh install with a wrong default URL has no way in. */}
+                        <Pressable onPress={onOpenSettings} style={styles.switchRow} hitSlop={8}>
+                            <Text style={styles.settingsLink}>⚙️ تنظیم آدرس سرور</Text>
                         </Pressable>
                     </View>
                 </ScrollView>
@@ -98,4 +109,5 @@ const styles = StyleSheet.create({
     switchRow: { flexDirection: 'row', justifyContent: 'center', marginTop: spacing.lg },
     switchText: { color: colors.muted, fontSize: 14 },
     switchLink: { color: colors.primary, fontSize: 14, fontWeight: '700' },
+    settingsLink: { color: colors.muted, fontSize: 13, fontWeight: '600' },
 });

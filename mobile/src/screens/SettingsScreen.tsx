@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Field, PrimaryButton, Screen } from '../components';
-import { getServerUrl, resetServerUrl, setServerUrl } from '../api/client';
+import { getDefaultServerUrl, getServerUrl, resetServerUrl, setServerUrl } from '../api/client';
 import { colors, radius, spacing, typography } from '../theme';
 
 export function SettingsScreen() {
@@ -11,8 +11,8 @@ export function SettingsScreen() {
     const [busy, setBusy] = useState(false);
 
     useEffect(() => {
+        setDefaultUrl(getDefaultServerUrl());
         getServerUrl().then(setUrl);
-        getServerUrl().then((u) => setDefaultUrl(u));
     }, []);
 
     const save = async () => {
@@ -64,6 +64,8 @@ export function SettingsScreen() {
                             style={{ textAlign: 'left' }}
                         />
 
+                        <Text style={styles.defaultHint}>آدرس پیش‌فرض اپ: {defaultUrl}</Text>
+
                         {msg ? (
                             <Text style={[styles.msg, msg.ok ? styles.msgOk : styles.msgErr]}>{msg.text}</Text>
                         ) : null}
@@ -107,7 +109,8 @@ const styles = StyleSheet.create({
         padding: spacing.lg,
     },
     title: { ...typography.title, color: colors.text, marginBottom: spacing.sm },
-    hint: { ...typography.small, color: colors.muted, lineHeight: 22, marginBottom: spacing.lg },
+    hint: { ...typography.small, color: colors.muted, lineHeight: 22, marginBottom: spacing.md },
+    defaultHint: { ...typography.tiny, color: colors.muted, marginBottom: spacing.lg, textAlign: 'left' },
     msg: { ...typography.small, marginBottom: spacing.md },
     msgOk: { color: colors.primary },
     msgErr: { color: colors.danger },
